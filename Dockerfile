@@ -8,7 +8,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install \
     libboost-all-dev cmake ca-certificates make g++
 RUN apt-get install -y python3
 
-RUN git clone git@github.com:emp-toolkit/emp-sh2pc.git
+RUN git clone https://github.com/emp-toolkit/emp-sh2pc.git
 
 COPY emp-sh2pc/ emp-sh2pc/
 
