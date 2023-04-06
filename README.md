@@ -15,5 +15,5 @@ Docker container for emp-sh2pc, a garbled circuits library, based on the [repo](
     ```
     docker build -t emp-sh2pc .
     docker run -it emp-sh2pc
-    ./bit_test 1 12345 123 & ./bit_test 2 12345 124
+    ./test_bit 1 12345 123 & ./test_bit 2 12345 124
     ```
