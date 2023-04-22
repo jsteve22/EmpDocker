@@ -9,6 +9,13 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install \
     build-essential libssl-dev
 RUN apt-get install -y python3
 
+RUN git clone --depth 1 --branch 3.3.9 https://gitlab.com/libeigen/eigen.git
+RUN cd eigen && mkdir build && cd build && cmake .. && make install
+COPY gazelle/ gazelle/
+WORKDIR /gazelle
+RUN mkdir build && cd build && cmake -DUNITTESTS=1 .. && make
+WORKDIR /
+
 COPY emp-sh2pc/ emp-sh2pc/
 
 WORKDIR /emp-sh2pc/emp-tool
