@@ -44,4 +44,4 @@ if(UNITTESTS)
     target_link_libraries (interface DelphiOffline)
 endif()
 
-install(TARGETS DelphiOffline DESTINATION .)
+install(TARGETS DelphiOffline DESTINATION build)
