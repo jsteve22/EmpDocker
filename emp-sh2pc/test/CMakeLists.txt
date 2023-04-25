@@ -1,4 +1,6 @@
 #Testing macro
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+
 macro (add_test_executable_with_lib _name libs)
 	add_executable(test_${_name} "${_name}.cpp")
 	target_link_libraries(test_${_name} ${EMP-OT_LIBRARIES})
