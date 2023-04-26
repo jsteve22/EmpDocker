@@ -17,6 +17,14 @@ macro (add_test_case_with_run _name)
 
 endmacro()
 
+macro (add_gazelle_lib _name)
+	add_executable(${_name} "${_name}.cpp")
+
+	target_link_libraries(${_name} ${EMP-OT_LIBRARIES})
+	target_link_libraries (${_name} DelphiOffline)
+endmacro()
+
+
 # Test cases
 add_test_case_with_run(bit)
 add_test_case_with_run(int)
@@ -28,3 +36,4 @@ add_test_case_with_run(example)
 add_test_case_with_run(repeat)
 add_test_case_with_run(subtract_int)
 add_test_case(ReLU)
+add_gazelle_lib(combine)
