@@ -14,7 +14,6 @@ install(FILES cmake/emp-sh2pc-config.cmake DESTINATION cmake/)
 install(DIRECTORY emp-sh2pc DESTINATION include/)
 
 ENABLE_TESTING()
-ADD_SUBDIRECTORY(test)
 
 # gazelle configuration
 add_definitions(${GCC_COVERAGE_COMPILE_FLAGS})
@@ -62,3 +61,5 @@ if(UNITTESTS)
 endif()
 
 install(TARGETS DelphiOffline DESTINATION .)
+
+ADD_SUBDIRECTORY(test)
