@@ -17,3 +17,11 @@ Docker container for emp-sh2pc, a garbled circuits library, based on the [repo](
     docker run -it emp-sh2pc
     ./test_bit 1 12345 123 & ./test_bit 2 12345 124
     ```
+    Or with apptainer, run:
+    ```
+    apptainer build emp.sif make.def
+    apptainer build --sandbox empImg emp.sif
+    apptainer shell --writable --fakeroot empImg
+    cd ~
+    ./test_bit 1 12345 123 & ./test_bit 2 12345 124
+    ```
