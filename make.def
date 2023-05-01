@@ -1,0 +1,59 @@
+BootStrap: docker
+From: debian:testing
+# ARG AARCH=arm32v7
+# FROM ${AARCH}/ubuntu
+
+# RUN apt-get update && apt-get build-essential cmake --no-install-recommends
+
+%files
+	./emp-sh2pc/ /emp-sh2pc
+
+%post
+	apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --no-install-suggests wget vim git sudo libboost-all-dev cmake ca-certificates make g++ software-properties-common build-essential libssl-dev
+	echo "Getting Python"
+	apt-get install -y python3
+	echo "Making emp-tool"
+	cd /emp-sh2pc
+	cd build
+	cd emp-tool
+	cmake .
+	make -j4 
+	make install
+	echo "Making emp-ot"
+	# cd /emp-sh2pc/build/emp-ot
+	cd ..
+	cd emp-ot
+	cmake . 
+	make -j4 
+	make install
+	cd ..
+	cd ..
+	# cd /emp-sh2pc/
+	echo "Getting Eigen"
+	git clone --depth 1 --branch 3.3.9 https://gitlab.com/libeigen/eigen.git
+ 	cd eigen 
+	mkdir build 
+	cd build 
+	cmake .. 
+	make install
+	# cd /emp-sh2pc/build
+	cd ..
+	cd ..
+	cd build
+	echo "Making files"
+	cmake -DUNITTESTS=1 .. 
+	make -j4 
+	make install
+
+	cd ..
+	cd bin
+	# cd /emp-sh2pc/bin
+
+# RUN mkdir build && cd build && cmake -DUNITTESTS=1 .. 
+
+%runscript
+	cd /emp-sh2pc
+	cd bin
+
+%environment
+	export HOME="/emp-sh2pc/bin"
