@@ -26,6 +26,8 @@ void ReLU(int bitsize, vector<int> inputs_a, int len, int party = 0, unsigned du
         gettimeofday(&t_end_a, NULL);
         for(unsigned m = 0; m < dup_test; ++m){ // 10 duplicate test
                 for (int j = 0; j < len; ++j){
+                        // ifThenElse function in file emp-tool/emp-tool/circuits/integer.hpp
+                        // ifThenElse(Bit *dest, const Bit *tsrc, const Bit *fsrc, int size, Bit cond)
                         ifThenElse(&product[j].bits[0], &a[j].bits[0], &zero_int[j].bits[0], bitsize, a[j].geq(zero_int[j]));
                 }
         }
