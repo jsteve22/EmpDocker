@@ -404,7 +404,6 @@ void beavers_triples(ClientFHE* cfhe, ServerFHE* sfhe, int num_triples) {
 
 
 int main(int argc, char* argv[]) {
-
   int bitsize = 32;
   int LEN = 256;
   int port, party;

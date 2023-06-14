@@ -3,3 +3,16 @@
 # Ignore images
 *.sif
 empImg
+
+# Ignore Cmake and Makefile
+**/CMakeCache.txt
+**/CMakeFiles/
+*.cmake
+*.o
+*.so
+**/bin/
+**/install_manifest.txt
+Makefile
+emp-sh2pc/eigen/
+*.a
+**/_deps/
