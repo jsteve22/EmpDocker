@@ -23,6 +23,13 @@ std::vector<double> ANDgatetime_ms, XORgatetime_ms;
 using namespace emp;
 using namespace std;
 
+struct ConvOutput {
+    int output_h;
+    int output_w;
+    int output_chan;
+    ClientShares client_shares;
+};
+
 vector<int> read_weights_1(string file) {
      ifstream fp;
     string line;
@@ -190,7 +197,7 @@ vector<vector<vector<vector<int> > > > read_weights_4(string file) {
 }
 
 
-void conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int filter_h, int filter_w,
+ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int filter_h, int filter_w,
     int inp_chans, int out_chans, int stride, bool pad_valid) {
     Metadata data = conv_metadata(cfhe->encoder, image_h, image_w, filter_h, filter_w, inp_chans, 
         out_chans, stride, stride, pad_valid);
@@ -334,14 +341,21 @@ void conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int filter
         free(linear_share[chan]);
     }
     free(linear_share);
+
+    ConvOutput conv_output;
+    conv_output.output_h = data.output_h;
+    conv_output.output_w = data.output_w;
+    conv_output.output_chan = data.out_chans;
+    conv_output.client_shares = client_shares;
     
     // Free C++ allocations
-    free(client_shares.linear_ct.inner);
-    client_conv_free(&data, &client_shares);
+    //free(client_shares.linear_ct.inner);
+    // client_conv_free(&data, &client_shares);
     server_conv_free(&data, masks, &server_shares);
+    return conv_output;
 }
 
-void fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h) {
+void fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h, u64* dense_input) {
     Metadata data = fc_metadata(cfhe->encoder, vector_len, matrix_h);
    
     printf("\nClient Preprocessing: ");
@@ -349,7 +363,8 @@ void fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h) {
 
     u64* input = (u64*) malloc(sizeof(u64)*vector_len);
     for (int idx = 0; idx < vector_len; idx++)
-        input[idx] = 1;
+        //input[idx] = 1;
+        input[idx] = dense_input[idx];
 
     ClientShares client_shares = client_fc_preprocess(cfhe, &data, input);
 
@@ -553,6 +568,23 @@ void beavers_triples(ClientFHE* cfhe, ServerFHE* sfhe, int num_triples) {
     server_triples_free(&server_shares);
 }
 
+u64* flatten(ConvOutput conv_output) {
+    int channels = conv_output.output_chan;
+    int width = conv_output.output_w;
+    int height = conv_output.output_h;
+
+    u64* dense_input = (u64*) malloc(sizeof(u64)*channels*width*height);
+    int idx = 0;
+    for (int i = 0; i < channels; i++) {
+        for (int j = 0; j < width * height; j++) {
+            dense_input[idx] = conv_output.client_shares.linear[i][j];
+            idx++;
+        }
+    }
+
+    return dense_input;
+}
+
 
 int main(int argc, char* argv[]) {
   int bitsize = 32;
@@ -597,12 +629,17 @@ int main(int argc, char* argv[]) {
   timeElapsed = endTime - startTime;
   printf("[%f seconds]\n", timeElapsed);
 
-  //conv(&cfhe, &sfhe, 5, 5, 3, 3, 1, 4, 1, 1);
+  ConvOutput conv_output;
+  u64* dense_input;
+
+  conv_output = conv(&cfhe, &sfhe, 28, 28, 3, 3, 1, 4, 1, 1);
+  dense_input = flatten(conv_output);
+
   //conv(&cfhe, &sfhe, 32, 32, 3, 3, 16, 16, 1, 0);
   //conv(&cfhe, &sfhe, 16, 16, 3, 3, 32, 32, 1, 1);
   //conv(&cfhe, &sfhe, 8, 8, 3, 3, 64, 64, 1, 1);
   
-  fc(&cfhe, &sfhe, 2704, 10);
+  fc(&cfhe, &sfhe, 2704, 10, dense_input);
   
   //beavers_triples(&cfhe, &sfhe, 100);
   
