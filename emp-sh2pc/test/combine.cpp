@@ -702,7 +702,7 @@ int main(int argc, char* argv[]) {
   ConvOutput conv_output;
   u64* dense_input;
 
-  conv_output = conv(&cfhe, &sfhe, 28, 28, 3, 3, 1, 1, 1, 1);
+  conv_output = conv(&cfhe, &sfhe, 28, 28, 3, 3, 1, 4, 1, 1);
   
   dense_input = flatten(conv_output);
   client_conv_free(&conv_output.data, &conv_output.client_shares);
