@@ -226,7 +226,7 @@ void conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int filter
     printf("[%f seconds]\n", timeElapsed);
 
     vector<vector<vector<vector<int> > > > data4;
-    string filename = "conv2d.test.txt";
+    string filename = "conv2d.kernel.txt";
     data4 = read_weights_4(filename);
 
     printf("Server Preprocessing: ");
@@ -242,7 +242,7 @@ void conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int filter
                 for (int channels = 0; channels < data4[0].size(); channels++) {
                     for (int width = 0; width < data4[0][0].size(); width++) {
                         for (int height = 0; height < data4[0][0][0].size(); height++) {
-                            filters[out_c][inp_c][idx] = data4[out_c][channels][width][height];
+                            filters[out_c][inp_c][idx] = data4[out_c][channels][width][height] + PLAINTEXT_MODULUS;
                             idx++;
                         }
                     }
@@ -250,13 +250,15 @@ void conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int filter
         }
     }
 
-    //cout << "data4: " << data4[3][0][1][2] << "\n";
-    //cout << "filters: " << filters[3][0][5] << "\n";
+    /*
+    cout << "data4: " << data4[3][0][1][2] << "\n";
+    cout << "filters: " << filters[3][0][5] << "\n";
     for (int fil = 0; fil < 1; fil++) {
         for (int idx = 0; idx < 9; idx++) {
             cout << filters[fil][0][idx] << "\n";
         }
     }
+    */
 
     uint64_t** linear_share = (uint64_t**) malloc(sizeof(uint64_t*)*data.out_chans);
     
@@ -594,12 +596,12 @@ int main(int argc, char* argv[]) {
   timeElapsed = endTime - startTime;
   printf("[%f seconds]\n", timeElapsed);
 
-  conv(&cfhe, &sfhe, 5, 5, 3, 3, 1, 1, 1, 1);
+  //conv(&cfhe, &sfhe, 5, 5, 3, 3, 1, 4, 1, 1);
   //conv(&cfhe, &sfhe, 32, 32, 3, 3, 16, 16, 1, 0);
   //conv(&cfhe, &sfhe, 16, 16, 3, 3, 32, 32, 1, 1);
   //conv(&cfhe, &sfhe, 8, 8, 3, 3, 64, 64, 1, 1);
   
-  //fc(&cfhe, &sfhe, 2704, 10);
+  fc(&cfhe, &sfhe, 2704, 10);
   
   //beavers_triples(&cfhe, &sfhe, 100);
   
