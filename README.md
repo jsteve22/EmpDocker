@@ -17,6 +17,15 @@ Docker container for emp-sh2pc, a garbled circuits library, based on the [repo](
     docker run -it emp-sh2pc
     ./test_bit 1 12345 123 & ./test_bit 2 12345 124
     ```
+    OR
+    ```
+    docker build -t emp-sh2pc .
+    docker run -it --name emp --mount "type=bind,source=$PWD/emp-sh2pc,target=/emp-sh2pc/" emp-sh2pc
+    ```
+    and re-run it with 
+    ```
+    docker start -i emp
+    ```
     Or with apptainer, run:
     ```
     apptainer build emp.sif make.def
