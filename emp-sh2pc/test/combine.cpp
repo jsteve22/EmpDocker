@@ -102,7 +102,6 @@ vector<vector<int> > read_weights_2(string file) {
             string num = "";
 
             int k = 0;
-            cout << dims[0] << " " << dims[1] << "\n";
             for (int i = 0; i < dims[0]; i++) {
                 vector<int> empty;
                 data2.push_back(empty);
@@ -368,11 +367,11 @@ void fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h) {
     u64** matrix = (u64**) malloc(sizeof(u64*)*matrix_h);
     for (int ct = 0; ct < matrix_h; ct++) {
         matrix[ct] = (u64*) malloc(sizeof(u64)*vector_len);
-        cout << data2[0].size() << "\n";
-        for (int vecs = 0; vecs < data2[0].size(); vecs++) {
+        // cout << data2[0].size() << "\n";
+        for (int vecs = 0; vecs < vector_len; vecs++) {
             //cout << "ct: " << ct << "\n";
             //cout << "vecs: " << vecs << "\n";
-            matrix[ct][vecs] = data2[ct][vecs];
+            matrix[ct][vecs] = data2[ct][vecs] + PLAINTEXT_MODULUS;
         }
     }
 
@@ -414,6 +413,7 @@ void fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h) {
     timeElapsed = endTime - origin;
     printf("Total [%f seconds]\n\n", timeElapsed);
 
+    
     printf("Matrix: [\n");
     for (int i = 0; i < matrix_h; i++) {
         for (int j = 0; j < vector_len; j++)
@@ -421,6 +421,7 @@ void fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h) {
         printf("\n");
     }
     printf("] \n");
+    
 
     printf("Input: [");
     for (int j = 0; j < vector_len; j++)
