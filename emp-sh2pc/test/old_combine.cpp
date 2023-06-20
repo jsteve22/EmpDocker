@@ -1,3 +1,9 @@
+/*
+ *  Example of using Delphi Offline's C interface
+ *
+ *  Created on: June 10, 2019
+ *      Author: ryanleh
+ */
 #include "emp-sh2pc/emp-sh2pc.h"
 #include <sys/time.h>
 #include <iostream>
@@ -9,13 +15,6 @@
 #include "interface.h"
 #include <time.h>
 #include <string.h>
-#include <vector>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <map>
-
-#include "read_weights.h"
 
 typedef uint64_t u64;
 std::vector<double> iotime_ms;
@@ -23,173 +22,52 @@ std::vector<double> ANDgatetime_ms, XORgatetime_ms;
 using namespace emp;
 using namespace std;
 
-vector<int> read_weights_1(string file) {
-     ifstream fp;
-    string line;
-    vector<int> data1;
+void ReLU(int bitsize, vector<int> inputs_a, int len, int party = 0, unsigned dup_test=10)
+{ // void ReLU(int bitsize, string inputs_a, string inputs_b) {
 
-    fp.open(file);
-    if (fp.is_open()) {
-        getline(fp, line);
+        vector<Integer> product(len, Integer(bitsize, 0, PUBLIC)); // Integer product(bitsize, 0, PUBLIC);
+        vector<Integer> zero_int(len, Integer(bitsize, 0, PUBLIC)); // Integer zero_int(bitsize, 0, PUBLIC);
 
-        int i = 0;
-        string dim = "";
-        vector<int> dims;
-        while (line[i] != '\0') {
-            if (line[i] != ' ') {
-                dim += line[i];
-            }
-            else {
-                dims.push_back(stoi(dim));
-                dim = "";
-            }
-            i++;
+        //     int64_t _inputs_a = stoi(inputs_a), _inputs_b = stoi(inputs_b), _inputs_r = stoi(inputs_r);
+
+        struct timeval t_start_a, t_end_a, t_end_run, t_end_reveal;
+        vector<Integer> a(len);
+        gettimeofday(&t_start_a, NULL);
+        for (int j = 0; j < len; ++j){
+                a[j] = Integer(bitsize, party == ALICE ? inputs_a[j] : 0, ALICE);
         }
-
-        if (dims.size() == 1) {
-            //
-            string line;
-            getline(fp, line);
-            string num = "";
-
-            int j = 0;
-            for (int i = 0; i < dims[0]; i++) {
-                while (line[j] != '\0') {
-                    if (line[j] != ' ') {
-                        num += line[j];
-                    }
-                    else {
-                        data1.push_back(stoi(num));
-                        num = "";
-                    }
-                    j++;
+        // Integer a(bitsize, party == ALICE ? inputs_a : 0, ALICE);
+        gettimeofday(&t_end_a, NULL);
+        for(unsigned m = 0; m < dup_test; ++m){ // 10 duplicate test
+                for (int j = 0; j < len; ++j){
+                        ifThenElse(&product[j].bits[0], &a[j].bits[0], &zero_int[j].bits[0], bitsize, a[j].geq(zero_int[j]));
                 }
-            }
-            return data1;
         }
-    }
-    cout << "file reading error\n";
-    return data1;
+        gettimeofday(&t_end_run, NULL);
+        vector<int> product_reveal(len);
+        for (int j = 0; j < len; ++j){
+                product_reveal[j] = product[j].reveal<int>(ALICE);
+        }
+        gettimeofday(&t_end_reveal, NULL);
+        for (int j = 0; j < len; ++j){
+                cout<< "Running Party: " <<party<< " ReLU(" << inputs_a[j] << ") = " << product_reveal[j] << endl;
+        }
+
+        double mseconds_a = 1000 * (t_end_a.tv_sec - t_start_a.tv_sec) + (t_end_a.tv_usec - t_start_a.tv_usec) / 1000.0;
+        double mseconds_run = (1000 * (t_end_run.tv_sec - t_end_a.tv_sec) + (t_end_run.tv_usec - t_end_a.tv_usec) / 1000.0)/dup_test;
+        double mseconds_reveal = 1000 * (t_end_reveal.tv_sec - t_end_run.tv_sec) + (t_end_reveal.tv_usec - t_end_run.tv_usec) / 1000.0;
+        double io_ms = 0;
+        for (size_t i = 0; i < iotime_ms.size(); i++)
+        {
+                io_ms += iotime_ms[i]/dup_test;
+        }
+
+        printf("Running Party: %d\n", party);
+        printf("%d %d Time of init a:            %f ms\n", party, getpid(), mseconds_a);
+        printf("%d %d Time of run circuit:       %f ms\n", party, getpid(), mseconds_run);
+        printf("%d %d Time of REAL RUN circuit:  %f ms\n", party, getpid(), mseconds_run-io_ms);
+        printf("%d %d Time of reveal the output: %f ms\n", party, getpid(), mseconds_reveal);
 }
-
-vector<vector<int> > read_weights_2(string file) {
-    ifstream fp;
-    string line;
-    vector<vector<int> > data2;
-
-    fp.open(file);
-    if (fp.is_open()) {
-        getline(fp, line);
-
-        int i = 0;
-        string dim = "";
-        vector<int> dims;
-        while (line[i] != '\0') {
-            if (line[i] != ' ') {
-                dim += line[i];
-            }
-            else {
-                dims.push_back(stoi(dim));
-                dim = "";
-            }
-            i++;
-        }
-
-        if (dims.size() == 2) {
-            //
-            string line;
-            getline(fp, line);
-            string num = "";
-
-            int k = 0;
-            cout << dims[0] << " " << dims[1] << "\n";
-            for (int i = 0; i < dims[0]; i++) {
-                vector<int> empty;
-                data2.push_back(empty);
-                for (int j = 0; j < dims[1]; j++) {
-                    while (line[k] != '\0') {
-                        if (line[k] != ' ') {
-                            num += line[k];
-                        }
-                        else {
-                            data2[i].push_back(stoi(num));
-                            num = "";
-                            k++;
-                            break;
-                        }
-                        k++;
-                    }
-                }
-            }
-            return data2;
-        }
-    }
-    cout << "file reading error\n";
-    return data2;
-}
-
-vector<vector<vector<vector<int> > > > read_weights_4(string file) {
-    ifstream fp;
-    string line;
-    vector<vector<vector<vector<int> > > > data4;
-
-    fp.open(file);
-    if (fp.is_open()) {
-        getline(fp, line);
-
-        int i = 0;
-        string dim = "";
-        vector<int> dims;
-        while (line[i] != '\0') {
-            if (line[i] != ' ') {
-                dim += line[i];
-            }
-            else {
-                dims.push_back(stoi(dim));
-                dim = "";
-            }
-            i++;
-        }
-
-        if (dims.size() == 4) {
-            string line;
-            getline(fp, line);
-            string num = "";
-
-            int m = 0;
-            for (int i = 0; i < dims[0]; i++) {
-                vector<vector<vector<int> > > empty3;
-                data4.push_back(empty3);
-                for (int j = 0; j < dims[1]; j++) {
-                    vector<vector<int> > empty2;
-                    data4[i].push_back(empty2);
-                    for (int k = 0; k < dims[2]; k++) {
-                        vector<int> empty1;
-                        data4[i][j].push_back(empty1);
-                        for (int l = 0; l < dims[3]; l++) {
-                            while (line[m] != '\0') {
-                                if (line[m] != ' ') {
-                                    num += line[m];
-                                }
-                                else {
-                                    data4[i][j][k].push_back(stoi(num));
-                                    num = "";
-                                    m++;
-                                    break;
-                                }
-                                m++;
-                            }
-                        }
-                    }
-                }
-            }
-            return data4;
-        }
-    }
-    cout << "file reading error\n";
-    return data4;
-}
-
 
 void conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int filter_h, int filter_w,
     int inp_chans, int out_chans, int stride, bool pad_valid) {
@@ -207,17 +85,17 @@ void conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int filter
     }
 
     for (int chan = 0; chan < data.inp_chans; chan++) {
+        int idx = 0;
         for (int row = 0; row < data.image_h; row++) {
             printf(" [");
             int col = 0;
             for (; col < data.image_w-1; col++) {
-                printf("%d, " , input[chan][row*data.image_w + col]);
+                printf("%d, " , input[chan][row*data.output_w + col]);
             }
-            printf("%d ]\n" , input[chan][row*data.image_w + col]);
+            printf("%d ]\n" , input[chan][row*data.output_w + col]);
         }
         printf("\n");
     }
-    
 
     ClientShares client_shares = client_conv_preprocess(cfhe, &data, input);
 
@@ -225,9 +103,6 @@ void conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int filter
     float timeElapsed = endTime - origin;
     printf("[%f seconds]\n", timeElapsed);
 
-    vector<vector<vector<vector<int> > > > data4;
-    string filename = "conv2d.test.txt";
-    data4 = read_weights_4(filename);
 
     printf("Server Preprocessing: ");
     float startTime = (float)clock()/CLOCKS_PER_SEC;
@@ -238,26 +113,12 @@ void conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int filter
         filters[out_c] = (u64**) malloc(sizeof(u64*)*data.inp_chans);
         for (int inp_c = 0; inp_c < data.inp_chans; inp_c++) {
             filters[out_c][inp_c] = (u64*) malloc(sizeof(u64)*data.filter_size);
-            int idx = 0;
-                for (int channels = 0; channels < data4[0].size(); channels++) {
-                    for (int width = 0; width < data4[0][0].size(); width++) {
-                        for (int height = 0; height < data4[0][0][0].size(); height++) {
-                            filters[out_c][inp_c][idx] = data4[out_c][channels][width][height];
-                            idx++;
-                        }
-                    }
-                }
+            for (int idx = 0; idx < data.filter_size; idx++)
+                filters[out_c][inp_c][idx] = 1;
         }
     }
 
-    //cout << "data4: " << data4[3][0][1][2] << "\n";
-    //cout << "filters: " << filters[3][0][5] << "\n";
-    for (int fil = 0; fil < 1; fil++) {
-        for (int idx = 0; idx < 9; idx++) {
-            cout << filters[fil][0][idx] << "\n";
-        }
-    }
-
+    // Server creates additive secret share
     uint64_t** linear_share = (uint64_t**) malloc(sizeof(uint64_t*)*data.out_chans);
     
     for (int chan = 0; chan < data.out_chans; chan++) {
@@ -267,7 +128,7 @@ void conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int filter
             linear_share[chan][idx] = 0;
         }
     }
-
+    
     char**** masks = server_conv_preprocess(sfhe, &data, filters); 
     ServerShares server_shares = server_conv_preprocess_shares(sfhe, &data, linear_share);
 
@@ -359,19 +220,11 @@ void fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h) {
     printf("Server Preprocessing: ");
     float startTime = (float)clock()/CLOCKS_PER_SEC;
 
-    vector<vector<int> > data2;
-    string filename = "dense.kernel.txt";
-    data2 = read_weights_2(filename);
-
     u64** matrix = (u64**) malloc(sizeof(u64*)*matrix_h);
     for (int ct = 0; ct < matrix_h; ct++) {
         matrix[ct] = (u64*) malloc(sizeof(u64)*vector_len);
-        cout << data2[0].size() << "\n";
-        for (int vecs = 0; vecs < data2[0].size(); vecs++) {
-            //cout << "ct: " << ct << "\n";
-            //cout << "vecs: " << vecs << "\n";
-            matrix[ct][vecs] = data2[ct][vecs];
-        }
+        for (int idx = 0; idx < vector_len; idx++)
+            matrix[ct][idx] = ct*vector_len + idx;
     }
 
     uint64_t* linear_share = (uint64_t*) malloc(sizeof(uint64_t)*matrix_h);
@@ -594,12 +447,12 @@ int main(int argc, char* argv[]) {
   timeElapsed = endTime - startTime;
   printf("[%f seconds]\n", timeElapsed);
 
-  conv(&cfhe, &sfhe, 5, 5, 3, 3, 1, 1, 1, 1);
+  conv(&cfhe, &sfhe, 5, 5, 3, 3, 3, 3, 1, 1);
   //conv(&cfhe, &sfhe, 32, 32, 3, 3, 16, 16, 1, 0);
   //conv(&cfhe, &sfhe, 16, 16, 3, 3, 32, 32, 1, 1);
   //conv(&cfhe, &sfhe, 8, 8, 3, 3, 64, 64, 1, 1);
   
-  //fc(&cfhe, &sfhe, 2704, 10);
+  //fc(&cfhe, &sfhe, 25, 10);
   
   //beavers_triples(&cfhe, &sfhe, 100);
   
@@ -628,8 +481,3 @@ int main(int argc, char* argv[]) {
   delete io;
   return 1;
 }
-
-
-
-
-
