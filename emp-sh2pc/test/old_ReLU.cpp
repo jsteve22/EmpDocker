@@ -8,7 +8,7 @@ std::vector<double> ANDgatetime_ms, XORgatetime_ms;
 using namespace emp;
 using namespace std;
 
-vector<int> ReLU(int bitsize, vector<int> inputs_a, int len, int party = 0, unsigned dup_test=10)
+void ReLU(int bitsize, vector<int> inputs_a, int len, int party = 0, unsigned dup_test=10)
 { // void ReLU(int bitsize, string inputs_a, string inputs_b) {
 
         vector<Integer> product(len, Integer(bitsize, 0, PUBLIC)); // Integer product(bitsize, 0, PUBLIC);
@@ -55,8 +55,6 @@ vector<int> ReLU(int bitsize, vector<int> inputs_a, int len, int party = 0, unsi
         printf("%d %d Time of run circuit:       %f ms\n", party, getpid(), mseconds_run);
         printf("%d %d Time of REAL RUN circuit:  %f ms\n", party, getpid(), mseconds_run-io_ms);
         printf("%d %d Time of reveal the output: %f ms\n", party, getpid(), mseconds_reveal);
-
-        return product_reveal;
 }
 
 int main(int argc, char **argv)
