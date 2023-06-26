@@ -135,6 +135,7 @@ vector<vector<vector<int> > > read_image(string file) {
                 }
             }
         }
+        fp.close();
         return image_data;
     }
     cout << "file reading error\n";
@@ -183,6 +184,7 @@ vector<int> read_weights_1(string file) {
                     j++;
                 }
             }
+            fp.close();
             return data1;
         }
     }
@@ -238,6 +240,7 @@ vector<vector<int> > read_weights_2(string file) {
                     }
                 }
             }
+            fp.close();
             return data2;
         }
     }
@@ -300,6 +303,7 @@ vector<vector<vector<vector<int> > > > read_weights_4(string file) {
                     }
                 }
             }
+            fp.close();
             return data4;
         }
     }
@@ -309,27 +313,40 @@ vector<vector<vector<vector<int> > > > read_weights_4(string file) {
 
 
 ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int filter_h, int filter_w,
-    int inp_chans, int out_chans, int stride, bool pad_valid) {
+    int inp_chans, int out_chans, int stride, bool pad_valid, string weights_filename, u64** input_data=NULL) {
     Metadata data = conv_metadata(cfhe->encoder, image_h, image_w, filter_h, filter_w, inp_chans, 
         out_chans, stride, stride, pad_valid);
+    string filename;
    
     printf("\nClient Preprocessing: ");
     float origin = (float)clock()/CLOCKS_PER_SEC;
 
-    vector<vector<vector<int> > > image_data;
-    string filename = "mnist_image.txt";
-    image_data = read_image(filename);
-
     u64** input = (u64**) malloc(sizeof(u64*)*data.inp_chans);
     for (int chan = 0; chan < data.inp_chans; chan++) {
         input[chan] = (u64*) malloc(sizeof(u64)*data.image_size);
-        int idx = 0;
-        for (int i = 0; i < image_data[0].size(); i++) {
-            for (int j = 0; j < image_data[0][0].size(); j++) {
-                input[chan][idx] = image_data[chan][i][j];
-                idx++;
-            }
-        }  
+    }
+
+    if (input_data == NULL) {
+        vector<vector<vector<int> > > image_data;
+        filename = "mnist_image_2.txt";
+        image_data = read_image(filename);
+
+        for (int chan = 0; chan < data.inp_chans; chan++) {
+           int idx = 0;
+           for (int i = 0; i < image_data[0].size(); i++) {
+               for (int j = 0; j < image_data[0][0].size(); j++) {
+                   input[chan][idx] = image_data[chan][i][j];
+                   idx++;
+               }
+           }  
+        }
+    }
+    else {
+        for (int chan = 0; chan < data.inp_chans; chan++) {
+           for (int i = 0; i < data.image_h * data.image_w; i++) {
+                input[chan][i] = input_data[chan][i];
+           }  
+        }
     }
 
     for (int chan = 0; chan < data.inp_chans; chan++) {
@@ -352,8 +369,8 @@ ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int 
     printf("[%f seconds]\n", timeElapsed);
 
     vector<vector<vector<vector<int> > > > data4;
-    filename = "conv2d.kernel.txt";
-    data4 = read_weights_4(filename);
+    //filename = "conv2d.kernel.txt";
+    data4 = read_weights_4(weights_filename);
 
     printf("Server Preprocessing: ");
     float startTime = (float)clock()/CLOCKS_PER_SEC;
@@ -473,11 +490,11 @@ ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int 
     // Free C++ allocations
     //free(client_shares.linear_ct.inner);
     //client_conv_free(&data, &client_shares);
-    server_conv_free(&data, masks, &server_shares);
+    //server_conv_free(&data, masks, &server_shares);
     return conv_output;
 }
 
-void fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h, u64* dense_input) {
+void fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h, u64* dense_input, string weights_filename) {
     Metadata data = fc_metadata(cfhe->encoder, vector_len, matrix_h);
    
     printf("\nClient Preprocessing: ");
@@ -498,8 +515,8 @@ void fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h, u64* den
     float startTime = (float)clock()/CLOCKS_PER_SEC;
 
     vector<vector<int> > data2;
-    string filename = "dense.kernel.txt";
-    data2 = read_weights_2(filename);
+    // string filename = "dense.kernel.txt";
+    data2 = read_weights_2(weights_filename);
 
     u64** matrix = (u64**) malloc(sizeof(u64*)*matrix_h);
     for (int ct = 0; ct < matrix_h; ct++) {
@@ -736,7 +753,7 @@ int main(int argc, char* argv[]) {
 
   if (party != ALICE) {
     bitsize = 32;
-    LEN = 2704;
+    LEN = 1936;
     u64* temp;
     u64* dense_input = (u64*) malloc( sizeof(u64) * LEN );
     temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party);
@@ -771,11 +788,15 @@ int main(int argc, char* argv[]) {
   u64* dense_input;
   u64* temp;
 
-  conv_output = conv(&cfhe, &sfhe, 28, 28, 3, 3, 1, 4, 1, 1);
-  
+  conv_output = conv(&cfhe, &sfhe, 28, 28, 3, 3, 1, 4, 1, 1, "conv2d.kernel.txt");
+  conv_output = conv(&cfhe, &sfhe, conv_output.output_h, conv_output.output_w, 3, 3, 1, conv_output.output_chan, 1, 1, "conv2d.kernel.txt", conv_output.client_shares.linear);
+  conv_output = conv(&cfhe, &sfhe, conv_output.output_h, conv_output.output_w, 3, 3, 1, conv_output.output_chan, 1, 1, "conv2d.kernel.txt", conv_output.client_shares.linear);
+
   // dense_input = flatten(conv_output);
   bitsize = 32;
-  LEN = 2704;
+  LEN = 1936;
+  conv_output = conv(&cfhe, &sfhe, conv_output.output_h, conv_output.output_w, 3, 3, 1, conv_output.output_chan, 1, 1, "conv2d.kernel.txt", conv_output.client_shares.linear);
+  int vec_len = conv_output.output_w * conv_output.output_h * conv_output.output_chan;
   dense_input = flatten(conv_output);
   temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party);
 
@@ -799,16 +820,16 @@ int main(int argc, char* argv[]) {
   dense_input = temp;
 
   // client_conv_free(&conv_output.data, &conv_output.client_shares);
-  for (int i = 115; i < 125; i++) {
-    cout << dense_input[i] << " ";
-  }
+  //for (int i = 115; i < 125; i++) {
+    //cout << dense_input[i] << " ";
+  //}
 
 
   //conv(&cfhe, &sfhe, 32, 32, 3, 3, 16, 16, 1, 0);
   //conv(&cfhe, &sfhe, 16, 16, 3, 3, 32, 32, 1, 1);
   //conv(&cfhe, &sfhe, 8, 8, 3, 3, 64, 64, 1, 1);
   
-  fc(&cfhe, &sfhe, 2704, 10, dense_input);
+  fc(&cfhe, &sfhe, vec_len, 10, dense_input, "dense.kernel.txt");
   
   //beavers_triples(&cfhe, &sfhe, 100);
   
