@@ -627,7 +627,7 @@ u64* fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h, u64* den
     u64* input = (u64*) malloc(sizeof(u64)*vector_len);
     for (int idx = 0; idx < vector_len; idx++)
         //input[idx] = 1;
-        input[idx] = dense_input[idx];
+        input[idx] = dense_input[idx + split_index];
 
     ClientShares client_shares = client_fc_preprocess(cfhe, &data, input);
 
@@ -1107,37 +1107,37 @@ int main(int argc, char* argv[]) {
   cout << "ReLU_6 Done\n";
 
   // 17) Fully Connected Layer: fully connects the incoming 1024 nodes to the outgoing 10 nodes: R10×1 ← R10×1024· R1024×1.
-  // int vec_len = width * height * channels;
+  int vec_len = width * height * channels;
   //fc(&cfhe, &sfhe, vec_len, num_vec, relu_output, "miniONN_cifar_model/dense.kernel.txt");
 
   cout << " RELU OUTPUT \n";
   for (int i = 0; i < 50; i++) {
     printf("%d ", (int)relu_output[i]);
   }
-  return 0;
 
-  free(dense_input);
-  dense_input = temp;
+  //free(dense_input);
+  // dense_input = temp;
 
   int num_vec = 10;
-  int64_t* output = (int64_t*) malloc(num_vec*sizeof(int64_t));
+  // int64_t* output = (int64_t*) malloc(num_vec*sizeof(int64_t));
+  u64* output = (u64*) malloc(num_vec*sizeof(u64));
   for (int j = 0; j < num_vec; j++) {
     output[j] = 0;
   }
 
-  /*
+  
   int split = 4000;
-  for (int i = 0; i < 4000; i+=split) {
+  for (int i = 0; i < vec_len; i+=split) {
     printf("min: %d\n", min(vec_len - i, split));
-    temp = fc(&cfhe, &sfhe, min(vec_len - i, split), num_vec, dense_input + i, "multi.dense.kernel.txt", i);
+    temp = fc(&cfhe, &sfhe, min(vec_len - i, split), num_vec, relu_output, "multi.dense.kernel.txt", i);
     for (int j = 0; j < num_vec; j++) {
-        output[j] += (int64_t) temp[j];
+        output[j] += temp[j];
         if (output[j] > PLAINTEXT_MODULUS / 2) {
             output[j] -= PLAINTEXT_MODULUS;
         }
     }
   }
-  */
+  
 
   printf("Linear: [");
     for (int idx = 0; idx < num_vec; idx++) {
