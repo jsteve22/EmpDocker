@@ -168,6 +168,53 @@ u64* ReLU(int bitsize, int64_t* inputs_a, int len, int party = 0, unsigned dup_t
         return product_reveal;
 }
 
+void scale_down(u64** layer, int channels, int len, int scale) {
+    for (int chan = 0; chan < channels; chan++) {
+        for (int idx = 0; idx < len; idx++) {
+            if (((int64_t)layer[chan][idx]) < 0) { // if negative
+                u64 temp_pos = ~(layer[chan][idx]) + 1; // make positive
+                temp_pos = temp_pos / SCALE; // scale
+                temp_pos = ~(temp_pos) + 1; // make negative
+                layer[chan][idx] = temp_pos;
+                continue;
+            }
+            layer[chan][idx] = layer[chan][idx] / scale;
+        }
+    }
+}
+
+u64** split_input_layer(u64** input_layer, int len) {
+    int half = len / 2;
+    u64** first_half = (u64**) malloc( sizeof(u64*) * half );
+    u64** last_half  = (u64**) malloc( sizeof(u64*) * half );
+
+    for (int i = 0; i < len; i++) {
+        if (i < half) first_half[i] = input_layer[i];
+        else last_half[i-half] = input_layer[i];
+    }
+
+    // free(*input_layer);
+    // input_layer = &first_half;
+    return last_half;
+}
+
+void linear_layer_sum(u64** target, u64** adder, int channels, int len) {
+    for (int chan = 0; chan < channels; chan++) {
+        for (int idx = 0; idx < len; idx++) {
+            target[chan][idx] += adder[chan][idx];
+        }
+    }
+}
+
+void linear_layer_centerlift(u64** layer, int channels, int len) {
+    for (int chan = 0; chan < channels; chan++) {
+        for (int idx = 0; idx < len; idx++) {
+            if (layer[chan][idx] > PLAINTEXT_MODULUS/2) {
+                layer[chan][idx] -= PLAINTEXT_MODULUS;
+            }
+        }
+    }
+}
 
 vector<vector<vector<int> > > read_image(string file) {
     ifstream fp;
@@ -532,6 +579,7 @@ ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int 
 
     
     
+    /*
     for (int chan = 0; chan < data.out_chans; chan++) {
         for (int idx = 0; idx < data.output_h * data.output_w; idx++) {
             if (client_shares.linear[chan][idx] > PLAINTEXT_MODULUS / 2) { // center lift
@@ -549,6 +597,7 @@ ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int 
             }
         }
     }
+    */
 
 
     
@@ -883,23 +932,23 @@ int main(int argc, char* argv[]) {
 
     MeanPoolOutput mean_temp;
 
-    temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party);
-    temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party);
+    temp = ReLU( bitsize, (int64_t*) dense_input, 32*32*64, party);
+    temp = ReLU( bitsize, (int64_t*) dense_input, 32*32*64, party);
 
     for (int chan = 0; chan < 64; chan++) {
         mean_temp = MeanPooling(bitsize, (int64_t*) dense_input, 32, 32, 2, party);
     }
 
-    temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party);
-    temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party);
+    temp = ReLU( bitsize, (int64_t*) dense_input, 16*16*64, party);
+    temp = ReLU( bitsize, (int64_t*) dense_input, 16*16*64, party);
 
     for (int chan = 0; chan < 64; chan++) {
         mean_temp = MeanPooling(bitsize, (int64_t*) dense_input_2, 16, 16, 2, party);
     }
 
-    temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party); // ReLU 4
+    temp = ReLU( bitsize, (int64_t*) dense_input, 8*8*64, party); // ReLU 4
     temp = ReLU( bitsize, (int64_t*) dense_input, 8*8*64, party); // ReLU 5
-    temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party); // ReLU 6
+    temp = ReLU( bitsize, (int64_t*) dense_input, 8*8*16, party); // ReLU 6
     free(temp);
     free(dense_input);
     finalize_semi_honest();
@@ -928,11 +977,13 @@ int main(int argc, char* argv[]) {
   printf("[%f seconds]\n", timeElapsed);
 
   ConvOutput conv_output;
+  ConvOutput conv_output_temp;
   MeanPoolOutput meanpool_output;
   meanpool_output.height = 0;
   meanpool_output.width = 0;
   u64* flattened;
   u64** unflattened;
+  u64** unflattened_temp;
   u64* relu_output;
   u64** meanpool_matrix = (u64**) malloc(sizeof(u64*) * 64) ;
   u64* dense_input;
@@ -986,10 +1037,12 @@ int main(int argc, char* argv[]) {
   channels = conv_output.output_chan;
   cout << "conv2d Done\n";
   cout << "channels: " << channels << endl;
+  linear_layer_centerlift(conv_output.client_shares.linear, channels, height*width);
+  scale_down(conv_output.client_shares.linear, channels, height*width, SCALE);
 
   // 2) ReLU Activation: calculates ReLU for each input
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
-  relu_output = ReLU(bitsize, (int64_t*) flattened, LEN, party);
+  relu_output = ReLU(bitsize, (int64_t*) flattened, height*width*channels, party);
   cout << "ReLU Done\n";
   for (int i = 0; i < 50; i++) {
     printf("%d ", (int)relu_output[i]);
@@ -997,24 +1050,27 @@ int main(int argc, char* argv[]) {
 
   // 3) Convolution: window size 3 × 3, stride (1, 1), pad (1, 1), number of output channels 64: R64×1024 ← R64×576· R576×1024.
   unflattened = unflatten(relu_output, channels, height, width);
-  cout << "After unflatten\n";
-  for (int i = 0; i < 50; i++) {
-    printf("%d ", (int)unflattened[0][i]);
-  } printf("\n");
   // TODO: EXAMINE INPUT CHANNELS 
-  // channels = 32;
+  unflattened_temp = split_input_layer(unflattened, channels);
+  channels = 32;
   conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_1.kernel.txt", unflattened);
-  // height = conv_output.output_h;
-  // width = conv_output.output_w;
-  // channels = conv_output.output_chan;
+  conv_output_temp = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_1.0.kernel.txt", unflattened_temp);
+  height = conv_output.output_h;
+  width = conv_output.output_w;
+  channels = conv_output.output_chan;
   cout << "conv2d_1 Done\n";
-  for (int i = 0; i < 50; i++) {
-    printf("%d ", (int)conv_output.client_shares.linear[0][i]);
+  linear_layer_centerlift(conv_output.client_shares.linear, channels, height*width);
+  linear_layer_centerlift(conv_output_temp.client_shares.linear, channels, height*width);
+  linear_layer_sum(conv_output.client_shares.linear, conv_output_temp.client_shares.linear, channels, height*width);
+  client_conv_free( &(conv_output_temp.data), &(conv_output_temp.client_shares) );
+  scale_down(conv_output.client_shares.linear, channels, height*width, SCALE);
+  for (int i = 0; i < 100; i++) {
+    printf("%ld ", (int64_t)conv_output.client_shares.linear[0][i]);
   } printf("\n");
 
   // 4) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
-  relu_output = ReLU(bitsize, (int64_t*) flattened, LEN, party);
+  relu_output = ReLU(bitsize, (int64_t*) flattened, width*height*channels, party);
   cout << "ReLU_1 Done\n";
   for (int i = 0; i < 50; i++) {
     printf("%d ", (int)relu_output[i]);
@@ -1034,25 +1090,45 @@ int main(int argc, char* argv[]) {
   } printf("\n");
 
   // 6) Convolution: window size 3 × 3, stride (1, 1), pad (1, 1), number of output channels 64: R64×256 ← R64×576· R576×256.
+  unflattened_temp = split_input_layer(meanpool_matrix, channels);
+  channels = 32;
   conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_2.kernel.txt", meanpool_matrix);
+  conv_output_temp = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_2.0.kernel.txt", unflattened_temp);
+  height = conv_output.output_h;
+  width = conv_output.output_w;
+  channels = conv_output.output_chan;
   cout << "conv2d_2 Done\n";
+  linear_layer_centerlift(conv_output.client_shares.linear, channels, height*width);
+  linear_layer_centerlift(conv_output_temp.client_shares.linear, channels, height*width);
+  linear_layer_sum(conv_output.client_shares.linear, conv_output_temp.client_shares.linear, channels, height*width);
+  client_conv_free( &(conv_output_temp.data), &(conv_output_temp.client_shares) );
+  scale_down(conv_output.client_shares.linear, channels, height*width, SCALE);
 
   // 7) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
-  relu_output = ReLU(bitsize, (int64_t*) flattened, LEN, party);
+  relu_output = ReLU(bitsize, (int64_t*) flattened, height*width*channels, party);
   cout << "ReLU_2 Done\n";
 
   // 8) Convolution: window size 3 × 3, stride (1, 1), pad (1, 1), number of output channels 64: R64×256 ← R64×576· R576×256.
   unflattened = unflatten(relu_output, channels, height, width);
+
+  unflattened_temp = split_input_layer(unflattened, channels);
+  channels = 32;
   conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_3.kernel.txt", unflattened);
+  conv_output_temp = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_3.0.kernel.txt", unflattened_temp);
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
   cout << "conv2d_3 Done\n";
+  linear_layer_centerlift(conv_output.client_shares.linear, channels, height*width);
+  linear_layer_centerlift(conv_output_temp.client_shares.linear, channels, height*width);
+  linear_layer_sum(conv_output.client_shares.linear, conv_output_temp.client_shares.linear, channels, height*width);
+  client_conv_free( &(conv_output_temp.data), &(conv_output_temp.client_shares) );
+  scale_down(conv_output.client_shares.linear, channels, height*width, SCALE);
 
   // 9) ReLU Activation: calculates ReLU for each input
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
-  relu_output = ReLU(bitsize, (int64_t*) flattened, LEN, party);
+  relu_output = ReLU(bitsize, (int64_t*) flattened, height*width*channels, party);
   cout << "ReLU_3 Done\n";
 
   meanpool_matrix = (u64**) malloc(sizeof(u64*) * 64) ;
@@ -1067,19 +1143,43 @@ int main(int argc, char* argv[]) {
   cout << "meanpooling_1 Done\n";
 
   // 11) Convolution: window size 3 × 3, stride (1, 1), pad (1, 1), number of output channels 64: R64×64 ← R64×576· R576×64.
+  unflattened_temp = split_input_layer(meanpool_matrix, channels);
+  channels = 32;
   conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_4.kernel.txt", meanpool_matrix);
+  conv_output_temp = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_4.0.kernel.txt", unflattened_temp);
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
   cout << "conv2d_4 Done\n";
+  linear_layer_centerlift(conv_output.client_shares.linear, channels, height*width);
+  linear_layer_centerlift(conv_output_temp.client_shares.linear, channels, height*width);
+  linear_layer_sum(conv_output.client_shares.linear, conv_output_temp.client_shares.linear, channels, height*width);
+  client_conv_free( &(conv_output_temp.data), &(conv_output_temp.client_shares) );
+  scale_down(conv_output.client_shares.linear, channels, height*width, SCALE);
 
   // 12) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
-  relu_output = ReLU(bitsize, (int64_t*) flattened, LEN, party);
+  relu_output = ReLU(bitsize, (int64_t*) flattened, height*width*channels, party);
   cout << "ReLU_4 Done\n";
 
   // 13) Convolution: window size 1 × 1, stride (1, 1), number of output channels of 64: R64×64 ← R64×64· R64×64.
   unflattened = unflatten(relu_output, channels, height, width);
+
+  unflattened_temp = split_input_layer(unflattened, channels);
+  channels = 32;
+  conv_output = conv(&cfhe, &sfhe, height, width, 1, 1, channels, 64, 1, 1, "./miniONN_cifar_model/conv2d_5.kernel.txt", unflattened);
+  conv_output_temp = conv(&cfhe, &sfhe, height, width, 1, 1, channels, 64, 1, 1, "./miniONN_cifar_model/conv2d_5.0.kernel.txt", unflattened_temp);
+  height = conv_output.output_h;
+  width = conv_output.output_w;
+  channels = conv_output.output_chan;
+  cout << "conv2d_5 Done\n";
+  linear_layer_centerlift(conv_output.client_shares.linear, channels, height*width);
+  linear_layer_centerlift(conv_output_temp.client_shares.linear, channels, height*width);
+  linear_layer_sum(conv_output.client_shares.linear, conv_output_temp.client_shares.linear, channels, height*width);
+  client_conv_free( &(conv_output_temp.data), &(conv_output_temp.client_shares) );
+  scale_down(conv_output.client_shares.linear, channels, height*width, SCALE);
+
+  /*
   conv_output = conv(&cfhe, &sfhe, height, width, 1, 1, channels, 64, 1, 1, "./miniONN_cifar_model/conv2d_5.kernel.txt", unflattened);
   height = conv_output.output_h;
   width = conv_output.output_w;
@@ -1087,6 +1187,7 @@ int main(int argc, char* argv[]) {
   cout << "conv2d_5 Done\n";
   cout << "(height, width): (" << height << ", " << width << ")\n"; 
   cout << "channels: " << channels << endl;
+  */
 
   // 14) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
@@ -1095,15 +1196,32 @@ int main(int argc, char* argv[]) {
 
   // 15) Convolution: window size 1 × 1, stride (1, 1), number of output channels of 16: R16×64 ← R16×64·R64×64.
   unflattened = unflatten(relu_output, channels, height, width);
+
+  unflattened_temp = split_input_layer(unflattened, channels);
+  channels = 32;
+  conv_output = conv(&cfhe, &sfhe, height, width, 1, 1, channels, 16, 1, 1, "./miniONN_cifar_model/conv2d_6.kernel.txt", unflattened);
+  conv_output_temp = conv(&cfhe, &sfhe, height, width, 1, 1, channels, 16, 1, 1, "./miniONN_cifar_model/conv2d_6.0.kernel.txt", unflattened_temp);
+  height = conv_output.output_h;
+  width = conv_output.output_w;
+  channels = conv_output.output_chan;
+  cout << "conv2d_6 Done\n";
+  linear_layer_centerlift(conv_output.client_shares.linear, channels, height*width);
+  linear_layer_centerlift(conv_output_temp.client_shares.linear, channels, height*width);
+  linear_layer_sum(conv_output.client_shares.linear, conv_output_temp.client_shares.linear, channels, height*width);
+  client_conv_free( &(conv_output_temp.data), &(conv_output_temp.client_shares) );
+  scale_down(conv_output.client_shares.linear, channels, height*width, SCALE);
+
+  /*
   conv_output = conv(&cfhe, &sfhe, height, width, 1, 1, channels, 16, 1, 1, "./miniONN_cifar_model/conv2d_6.kernel.txt", unflattened);
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
   cout << "conv2d_6 Done\n";
+  */
 
   // 16) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
-  relu_output = ReLU(bitsize, (int64_t*) flattened, LEN, party);
+  relu_output = ReLU(bitsize, (int64_t*) flattened, height*width*channels, party);
   cout << "ReLU_6 Done\n";
 
   // 17) Fully Connected Layer: fully connects the incoming 1024 nodes to the outgoing 10 nodes: R10×1 ← R10×1024· R1024×1.
