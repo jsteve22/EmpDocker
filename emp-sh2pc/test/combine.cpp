@@ -1247,7 +1247,7 @@ int main(int argc, char* argv[]) {
   int split = 4000;
   for (int i = 0; i < vec_len; i+=split) {
     printf("min: %d\n", min(vec_len - i, split));
-    temp = fc(&cfhe, &sfhe, min(vec_len - i, split), num_vec, relu_output, "multi.dense.kernel.txt", i);
+    temp = fc(&cfhe, &sfhe, min(vec_len - i, split), num_vec, relu_output, "./miniONN_cifar_model/dense.kernel.txt", i);
     for (int j = 0; j < num_vec; j++) {
         output[j] += temp[j];
         if (output[j] > PLAINTEXT_MODULUS / 2) {
