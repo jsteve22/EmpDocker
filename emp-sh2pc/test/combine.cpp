@@ -39,10 +39,15 @@ struct MeanPoolOutput {
     int width;
 };
 
-MeanPoolOutput MeanPooling(int bitsize, int64_t* inputs_a, int height, int width, int window_size, int party = 0, unsigned dup_test=10) {
+MeanPoolOutput MeanPooling(int bitsize, int64_t* inputs_a, int height, int width, int window_size, int party = 0) {
         MeanPoolOutput output_struct;
-        vector<vector<Integer> > output(height, vector<Integer>(width, Integer(bitsize, 0, PUBLIC))); // Integer product(bitsize, 0, PUBLIC);
+        vector<vector<Integer> > output(height/window_size, vector<Integer>(width/window_size, Integer(bitsize, 0, PUBLIC))); // Integer product(bitsize, 0, PUBLIC);
         // vector<Integer> zero_int(len, Integer(bitsize, 0, PUBLIC)); // Integer zero_int(bitsize, 0, PUBLIC);
+        /*
+        if ( height == 16 ) {
+            cout << "Test with height == 16\n";
+        }
+        */
 
         struct timeval t_start_a, t_end_a, t_end_run, t_end_reveal;
         vector<vector<Integer> > a(height, vector<Integer>(width));
@@ -55,9 +60,6 @@ MeanPoolOutput MeanPooling(int bitsize, int64_t* inputs_a, int height, int width
             }
         }
 
-
-        Integer modulus = Integer(bitsize, PLAINTEXT_MODULUS, PUBLIC);
-        Integer half_mod = Integer(bitsize, PLAINTEXT_MODULUS / 2, PUBLIC);
 
         gettimeofday(&t_end_a, NULL);
         for (int i = 0; i < height; i+=window_size) {
@@ -78,8 +80,8 @@ MeanPoolOutput MeanPooling(int bitsize, int64_t* inputs_a, int height, int width
         gettimeofday(&t_end_run, NULL);
         u64* product_reveal = (u64*) malloc( (sizeof(u64) * height * width) );
         idx = 0;
-        for (int i = 0; i < height; ++i) {
-            for (int j = 0; j < width; ++j) {
+        for (int i = 0; i < height / window_size; ++i) {
+            for (int j = 0; j < width / window_size; ++j) {
                 product_reveal[idx] = output[i][j].reveal<int>(ALICE);
                 idx++;
             }
@@ -87,13 +89,14 @@ MeanPoolOutput MeanPooling(int bitsize, int64_t* inputs_a, int height, int width
 
         gettimeofday(&t_end_reveal, NULL);
 
+        /*
         double mseconds_a = 1000 * (t_end_a.tv_sec - t_start_a.tv_sec) + (t_end_a.tv_usec - t_start_a.tv_usec) / 1000.0;
-        double mseconds_run = (1000 * (t_end_run.tv_sec - t_end_a.tv_sec) + (t_end_run.tv_usec - t_end_a.tv_usec) / 1000.0)/dup_test;
+        double mseconds_run = (1000 * (t_end_run.tv_sec - t_end_a.tv_sec) + (t_end_run.tv_usec - t_end_a.tv_usec) / 1000.0);
         double mseconds_reveal = 1000 * (t_end_reveal.tv_sec - t_end_run.tv_sec) + (t_end_reveal.tv_usec - t_end_run.tv_usec) / 1000.0;
         double io_ms = 0;
         for (size_t i = 0; i < iotime_ms.size(); i++)
         {
-                io_ms += iotime_ms[i]/dup_test;
+                io_ms += iotime_ms[i];
         }
 
         printf("Running Party: %d\n", party);
@@ -101,6 +104,7 @@ MeanPoolOutput MeanPooling(int bitsize, int64_t* inputs_a, int height, int width
         printf("%d %d Time of run circuit:       %f ms\n", party, getpid(), mseconds_run);
         printf("%d %d Time of REAL RUN circuit:  %f ms\n", party, getpid(), mseconds_run-io_ms);
         printf("%d %d Time of reveal the output: %f ms\n", party, getpid(), mseconds_reveal);
+        */
 
         output_struct.matrix = product_reveal;
         output_struct.height = height / window_size;
@@ -144,6 +148,7 @@ u64* ReLU(int bitsize, int64_t* inputs_a, int len, int party = 0, unsigned dup_t
         }
         */
 
+        /*
         double mseconds_a = 1000 * (t_end_a.tv_sec - t_start_a.tv_sec) + (t_end_a.tv_usec - t_start_a.tv_usec) / 1000.0;
         double mseconds_run = (1000 * (t_end_run.tv_sec - t_end_a.tv_sec) + (t_end_run.tv_usec - t_end_a.tv_usec) / 1000.0)/dup_test;
         double mseconds_reveal = 1000 * (t_end_reveal.tv_sec - t_end_run.tv_sec) + (t_end_reveal.tv_usec - t_end_run.tv_usec) / 1000.0;
@@ -158,6 +163,7 @@ u64* ReLU(int bitsize, int64_t* inputs_a, int len, int party = 0, unsigned dup_t
         printf("%d %d Time of run circuit:       %f ms\n", party, getpid(), mseconds_run);
         printf("%d %d Time of REAL RUN circuit:  %f ms\n", party, getpid(), mseconds_run-io_ms);
         printf("%d %d Time of reveal the output: %f ms\n", party, getpid(), mseconds_reveal);
+        */
 
         return product_reveal;
 }
@@ -396,7 +402,7 @@ ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int 
         out_chans, stride, stride, pad_valid);
     string filename;
    
-    printf("\nClient Preprocessing: ");
+    // printf("\nClient Preprocessing: ");
     float origin = (float)clock()/CLOCKS_PER_SEC;
 
     u64** input = (u64**) malloc(sizeof(u64*)*data.inp_chans);
@@ -454,7 +460,7 @@ ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int 
 
     float endTime = (float)clock()/CLOCKS_PER_SEC;
     float timeElapsed = endTime - origin;
-    printf("[%f seconds]\n", timeElapsed);
+    printf("Conv PreProcessing [%f seconds]\n", timeElapsed);
 
     vector<vector<vector<vector<int> > > > data4;
     //filename = "conv2d.kernel.txt";
@@ -462,7 +468,7 @@ ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int 
     int width = data4[0][0].size();
     int height = data4[0][0][0].size();
 
-    printf("Server Preprocessing: ");
+    // printf("Server Preprocessing: ");
     float startTime = (float)clock()/CLOCKS_PER_SEC;
 
     // Server creates filter
@@ -497,18 +503,18 @@ ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int 
 
     endTime = (float)clock()/CLOCKS_PER_SEC;
     timeElapsed = endTime - startTime;
-    printf("[%f seconds]\n", timeElapsed);
+    // printf("[%f seconds]\n", timeElapsed);
 
-    printf("Convolution: ");
+    // printf("Convolution: ");
     startTime = (float)clock()/CLOCKS_PER_SEC;
 
     server_conv_online(sfhe, &data, client_shares.input_ct, masks, &server_shares);
 
     endTime = (float)clock()/CLOCKS_PER_SEC;
     timeElapsed = endTime - startTime;
-    printf("[%f seconds]\n", timeElapsed);
+    printf("Conv processing time [%f seconds]\n", timeElapsed);
 
-    printf("Post process: ");
+    // printf("Post process: ");
     startTime = (float)clock()/CLOCKS_PER_SEC;
 
     // This simulates the client receiving the ciphertexts 
@@ -519,10 +525,10 @@ ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int 
 
     endTime = (float)clock()/CLOCKS_PER_SEC;
     timeElapsed = endTime - startTime;
-    printf("[%f seconds]\n", timeElapsed);
+    // printf("[%f seconds]\n", timeElapsed);
 
     timeElapsed = endTime - origin;
-    printf("Total [%f seconds]\n\n", timeElapsed);
+    // printf("Total [%f seconds]\n\n", timeElapsed);
 
     
     
@@ -608,14 +614,14 @@ ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int 
     // Free C++ allocations
     //free(client_shares.linear_ct.inner);
     //client_conv_free(&data, &client_shares);
-    //server_conv_free(&data, masks, &server_shares);
+    server_conv_free(&data, masks, &server_shares);
     return conv_output;
 }
 
 u64* fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h, u64* dense_input, string weights_filename, int split_index=0) {
     Metadata data = fc_metadata(cfhe->encoder, vector_len, matrix_h);
    
-    printf("\nClient Preprocessing: ");
+    // printf("\nClient Preprocessing: ");
     float origin = (float)clock()/CLOCKS_PER_SEC;
 
     u64* input = (u64*) malloc(sizeof(u64)*vector_len);
@@ -627,9 +633,9 @@ u64* fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h, u64* den
 
     float endTime = (float)clock()/CLOCKS_PER_SEC;
     float timeElapsed = endTime - origin;
-    printf("[%f seconds]\n", timeElapsed);
+    // printf("[%f seconds]\n", timeElapsed);
 
-    printf("Server Preprocessing: ");
+    // printf("Server Preprocessing: ");
     float startTime = (float)clock()/CLOCKS_PER_SEC;
 
     vector<vector<int> > data2;
@@ -661,33 +667,33 @@ u64* fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h, u64* den
     
     endTime = (float)clock()/CLOCKS_PER_SEC;
     timeElapsed = endTime - startTime;
-    printf("[%f seconds]\n", timeElapsed);
+    // printf("[%f seconds]\n", timeElapsed);
 
-    printf("Layer: ");
+    // printf("Layer: ");
     startTime = (float)clock()/CLOCKS_PER_SEC;
 
     server_fc_online(sfhe, &data, client_shares.input_ct, enc_matrix, &server_shares);
 
     endTime = (float)clock()/CLOCKS_PER_SEC;
     timeElapsed = endTime - startTime;
-    printf("[%f seconds]\n", timeElapsed);
+    // printf("[%f seconds]\n", timeElapsed);
 
     // This simulates the client receiving the ciphertexts 
     client_shares.linear_ct.inner = (char*) malloc(sizeof(char)*server_shares.linear_ct.size);
     client_shares.linear_ct.size = server_shares.linear_ct.size;
     memcpy(client_shares.linear_ct.inner, server_shares.linear_ct.inner, server_shares.linear_ct.size);
 
-    printf("Post process: ");
+    // printf("Post process: ");
     startTime = (float)clock()/CLOCKS_PER_SEC;
 
     client_fc_decrypt(cfhe, &data, &client_shares);
 
     endTime = (float)clock()/CLOCKS_PER_SEC;
     timeElapsed = endTime - startTime;
-    printf("[%f seconds]\n", timeElapsed);
+    // printf("[%f seconds]\n", timeElapsed);
 
     timeElapsed = endTime - origin;
-    printf("Total [%f seconds]\n\n", timeElapsed);
+    // printf("Total [%f seconds]\n\n", timeElapsed);
 
     /*
     printf("Matrix: [\n");
@@ -792,13 +798,13 @@ void beavers_triples(ClientFHE* cfhe, ServerFHE* sfhe, int num_triples) {
     bool correct = true;
     printf("\nA    : [");
     for (int i = 0; i < num_triples; i++) {
-        printf("%llu, " , reduce(client_a[i] + server_a[i]));
+        printf("%lu, " , reduce(client_a[i] + server_a[i]));
     }
     printf("] \n");
 
     printf("B    : [");
     for (int i = 0; i < num_triples; i++) {
-        printf("%llu, " , reduce(client_b[i] + server_b[i]));
+        printf("%lu, " , reduce(client_b[i] + server_b[i]));
     }
     printf("] \n");
 
@@ -807,7 +813,7 @@ void beavers_triples(ClientFHE* cfhe, ServerFHE* sfhe, int num_triples) {
         u64 a = client_a[i] + server_a[i];
         u64 b = client_b[i] + server_b[i];
         u64 c = reduce(client_shares.c_share[i] + server_c[i]);
-        printf("%llu, " , c);
+        printf("%lu, " , c);
         correct &= (c == mul(a,b));
     }
     printf("] \n");
@@ -868,28 +874,32 @@ int main(int argc, char* argv[]) {
 
   setup_semi_honest(io, party);
 
-
   cout << "Calculating ReLU of an array length = " << LEN << ", bitsize =" << bitsize << endl;
 
   if (party != ALICE) {
     u64* temp;
     u64* dense_input = (u64*) malloc( sizeof(u64) * LEN );
     u64* dense_input_2 = (u64*) malloc( sizeof(u64) * LEN / 4 );
+
     MeanPoolOutput mean_temp;
+
     temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party);
     temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party);
+
     for (int chan = 0; chan < 64; chan++) {
         mean_temp = MeanPooling(bitsize, (int64_t*) dense_input, 32, 32, 2, party);
     }
+
     temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party);
     temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party);
-    for (int chan = 0; chan < 3; chan++) {
+
+    for (int chan = 0; chan < 64; chan++) {
         mean_temp = MeanPooling(bitsize, (int64_t*) dense_input_2, 16, 16, 2, party);
     }
-    return 0;
-    temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party);
-    temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party);
-    temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party);
+
+    temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party); // ReLU 4
+    temp = ReLU( bitsize, (int64_t*) dense_input, 8*8*64, party); // ReLU 5
+    temp = ReLU( bitsize, (int64_t*) dense_input, LEN, party); // ReLU 6
     free(temp);
     free(dense_input);
     finalize_semi_honest();
@@ -919,6 +929,8 @@ int main(int argc, char* argv[]) {
 
   ConvOutput conv_output;
   MeanPoolOutput meanpool_output;
+  meanpool_output.height = 0;
+  meanpool_output.width = 0;
   u64* flattened;
   u64** unflattened;
   u64* relu_output;
@@ -968,22 +980,45 @@ int main(int argc, char* argv[]) {
 
  // CIFAR-10 CNN
   // 1) Convolution: input image 3 × 32 × 32, window size 3 × 3, stride (1,1), pad (1, 1), number of output channels 64: R64×1024 ← R64×27·R27×1024.
-  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "miniONN_cifar_model/conv2d.kernel.txt");
+  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d.kernel.txt");
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
+  cout << "conv2d Done\n";
+  cout << "channels: " << channels << endl;
+
   // 2) ReLU Activation: calculates ReLU for each input
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
   relu_output = ReLU(bitsize, (int64_t*) flattened, LEN, party);
+  cout << "ReLU Done\n";
+  for (int i = 0; i < 50; i++) {
+    printf("%d ", (int)relu_output[i]);
+  } printf("\n");
+
   // 3) Convolution: window size 3 × 3, stride (1, 1), pad (1, 1), number of output channels 64: R64×1024 ← R64×576· R576×1024.
   unflattened = unflatten(relu_output, channels, height, width);
-  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "miniONN_cifar_model/conv2d_1.kernel.txt", unflattened);
-  height = conv_output.output_h;
-  width = conv_output.output_w;
-  channels = conv_output.output_chan;
+  cout << "After unflatten\n";
+  for (int i = 0; i < 50; i++) {
+    printf("%d ", (int)unflattened[0][i]);
+  } printf("\n");
+  // TODO: EXAMINE INPUT CHANNELS 
+  // channels = 32;
+  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_1.kernel.txt", unflattened);
+  // height = conv_output.output_h;
+  // width = conv_output.output_w;
+  // channels = conv_output.output_chan;
+  cout << "conv2d_1 Done\n";
+  for (int i = 0; i < 50; i++) {
+    printf("%d ", (int)conv_output.client_shares.linear[0][i]);
+  } printf("\n");
+
   // 4) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
   relu_output = ReLU(bitsize, (int64_t*) flattened, LEN, party);
+  cout << "ReLU_1 Done\n";
+  for (int i = 0; i < 50; i++) {
+    printf("%d ", (int)relu_output[i]);
+  } printf("\n");
 
   // 5) Mean Pooling: window size 1 × 2 × 2, outputs R64×16×16.
   unflattened = unflatten(relu_output, channels, height, width);
@@ -993,65 +1028,93 @@ int main(int argc, char* argv[]) {
   }
   width = meanpool_output.width;
   height = meanpool_output.height;
+  cout << "meanpooling Done\n";
+  for (int i = 0; i < 50; i++) {
+    printf("%d ", (int)meanpool_matrix[0][i]);
+  } printf("\n");
+
   // 6) Convolution: window size 3 × 3, stride (1, 1), pad (1, 1), number of output channels 64: R64×256 ← R64×576· R576×256.
-  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "miniONN_cifar_model/conv2d_2.kernel.txt", meanpool_matrix);
+  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_2.kernel.txt", meanpool_matrix);
+  cout << "conv2d_2 Done\n";
+
   // 7) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
   relu_output = ReLU(bitsize, (int64_t*) flattened, LEN, party);
+  cout << "ReLU_2 Done\n";
+
   // 8) Convolution: window size 3 × 3, stride (1, 1), pad (1, 1), number of output channels 64: R64×256 ← R64×576· R576×256.
   unflattened = unflatten(relu_output, channels, height, width);
-  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "miniONN_cifar_model/conv2d_3.kernel.txt", unflattened);
+  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_3.kernel.txt", unflattened);
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
+  cout << "conv2d_3 Done\n";
+
   // 9) ReLU Activation: calculates ReLU for each input
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
   relu_output = ReLU(bitsize, (int64_t*) flattened, LEN, party);
+  cout << "ReLU_3 Done\n";
+
+  meanpool_matrix = (u64**) malloc(sizeof(u64*) * 64) ;
   // 10) Mean Pooling: window size 1 × 2 × 2, outputs R64×16×16.
   unflattened = unflatten(relu_output, channels, height, width);
-  for (int chan = 0; chan < 3; chan++) {
-    printf("meanpool %d ", chan);
+  for (int chan = 0; chan < channels; chan++) {
     meanpool_output = MeanPooling(bitsize, (int64_t*) unflattened[chan], height, width, 2, party);
     meanpool_matrix[chan] = meanpool_output.matrix;
   }
   width = meanpool_output.width;
   height = meanpool_output.height;
-  return 0;
+  cout << "meanpooling_1 Done\n";
+
   // 11) Convolution: window size 3 × 3, stride (1, 1), pad (1, 1), number of output channels 64: R64×64 ← R64×576· R576×64.
-  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "miniONN_cifar_model/conv2d_4.kernel.txt", meanpool_matrix);
+  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_4.kernel.txt", meanpool_matrix);
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
+  cout << "conv2d_4 Done\n";
+
   // 12) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
   relu_output = ReLU(bitsize, (int64_t*) flattened, LEN, party);
+  cout << "ReLU_4 Done\n";
+
   // 13) Convolution: window size 1 × 1, stride (1, 1), number of output channels of 64: R64×64 ← R64×64· R64×64.
   unflattened = unflatten(relu_output, channels, height, width);
-  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 1, "miniONN_cifar_model/conv2d_5.kernel.txt", unflattened);
+  conv_output = conv(&cfhe, &sfhe, height, width, 1, 1, channels, 64, 1, 1, "./miniONN_cifar_model/conv2d_5.kernel.txt", unflattened);
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
+  cout << "conv2d_5 Done\n";
+  cout << "(height, width): (" << height << ", " << width << ")\n"; 
+  cout << "channels: " << channels << endl;
+
   // 14) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
-  relu_output = ReLU(bitsize, (int64_t*) flattened, LEN, party);
+  relu_output = ReLU(bitsize, (int64_t*) flattened, height*width*channels, party);
+  cout << "ReLU_5 Done\n";
+
   // 15) Convolution: window size 1 × 1, stride (1, 1), number of output channels of 16: R16×64 ← R16×64·R64×64.
   unflattened = unflatten(relu_output, channels, height, width);
-  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 1, "miniONN_cifar_model/conv2d_6.kernel.txt", unflattened);
+  conv_output = conv(&cfhe, &sfhe, height, width, 1, 1, channels, 16, 1, 1, "./miniONN_cifar_model/conv2d_6.kernel.txt", unflattened);
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
+  cout << "conv2d_6 Done\n";
+
   // 16) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
   relu_output = ReLU(bitsize, (int64_t*) flattened, LEN, party);
+  cout << "ReLU_6 Done\n";
+
   // 17) Fully Connected Layer: fully connects the incoming 1024 nodes to the outgoing 10 nodes: R10×1 ← R10×1024· R1024×1.
-  int vec_len = width * height * channels;
+  // int vec_len = width * height * channels;
   //fc(&cfhe, &sfhe, vec_len, num_vec, relu_output, "miniONN_cifar_model/dense.kernel.txt");
 
-    return 0;
   cout << " RELU OUTPUT \n";
   for (int i = 0; i < 50; i++) {
-    printf("%d ", temp[i]);
+    printf("%d ", (int)relu_output[i]);
   }
+  return 0;
 
   free(dense_input);
   dense_input = temp;
@@ -1078,7 +1141,7 @@ int main(int argc, char* argv[]) {
 
   printf("Linear: [");
     for (int idx = 0; idx < num_vec; idx++) {
-        printf("%d, " , output[idx]);
+        printf("%d, " , (int)output[idx]);
     }
     printf("] \n");
   
