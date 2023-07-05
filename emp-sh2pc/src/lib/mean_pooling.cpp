@@ -2,7 +2,7 @@
 
 #include "mean_pooling.h"
 
-MeanPoolOutput MeanPooling(int bitsize, int64_t* inputs_a, int height, int width, int window_size, int party = 0) {
+MeanPoolOutput MeanPooling(int bitsize, int64_t* inputs_a, int height, int width, int window_size, int party) {
         MeanPoolOutput output_struct;
         vector<vector<Integer> > output(height/window_size, vector<Integer>(width/window_size, Integer(bitsize, 0, PUBLIC))); // Integer product(bitsize, 0, PUBLIC);
         // vector<Integer> zero_int(len, Integer(bitsize, 0, PUBLIC)); // Integer zero_int(bitsize, 0, PUBLIC);
