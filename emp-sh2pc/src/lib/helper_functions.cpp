@@ -4,18 +4,16 @@
 
 int SCALE = 256;
 
-void scale_down(u64** layer, int channels, int len, int scale) {
-    for (int chan = 0; chan < channels; chan++) {
-        for (int idx = 0; idx < len; idx++) {
-            if (((int64_t)layer[chan][idx]) < 0) { // if negative
-                u64 temp_pos = ~(layer[chan][idx]) + 1; // make positive
-                temp_pos = temp_pos / SCALE; // scale
-                temp_pos = ~(temp_pos) + 1; // make negative
-                layer[chan][idx] = temp_pos;
-                continue;
-            }
-            layer[chan][idx] = layer[chan][idx] / scale;
+void scale_down(u64* layer, int len, int scale) {
+    for (int idx = 0; idx < len; idx++) {
+        if (((int64_t)layer[idx]) < 0) { // if negative
+            u64 temp_pos = ~(layer[idx]) + 1; // make positive
+            temp_pos = temp_pos / SCALE; // scale
+            temp_pos = ~(temp_pos) + 1; // make negative
+            layer[idx] = temp_pos;
+            continue;
         }
+        layer[idx] = layer[idx] / scale;
     }
 }
 

@@ -22,7 +22,7 @@ typedef uint64_t u64;
 using namespace emp;
 using namespace std;
 
-void scale_down(u64** layer, int channels, int len, int scale);
+void scale_down(u64* layer, int len, int scale);
 
 u64** split_input_layer(u64** input_layer, int len);
 
