@@ -12,9 +12,11 @@ u64* ReLU(int bitsize, int64_t* inputs_a, int len, int party, unsigned dup_test)
 
         struct timeval t_start_a, t_end_a, t_end_run, t_end_reveal;
         vector<Integer> a(len);
+        vector<Integer> b(len);
         gettimeofday(&t_start_a, NULL);
         for (int j = 0; j < len; ++j){
                 a[j] = Integer(bitsize, party == ALICE ? inputs_a[j] : 0, ALICE);
+                b[j] = Integer(bitsize, party == BOB ? inputs_a[j] : 0, BOB);
         }
         // Integer a(bitsize, party == ALICE ? inputs_a : 0, ALICE);
         gettimeofday(&t_end_a, NULL);
@@ -22,7 +24,8 @@ u64* ReLU(int bitsize, int64_t* inputs_a, int len, int party, unsigned dup_test)
                 for (int j = 0; j < len; ++j){
                         // ifThenElse function in file emp-tool/emp-tool/circuits/integer.hpp
                         // ifThenElse(Bit *dest, const Bit *tsrc, const Bit *fsrc, int size, Bit cond)
-                        ifThenElse(&product[j].bits[0], &a[j].bits[0], &zero_int[j].bits[0], bitsize, a[j].geq(zero_int[j]));
+                        Integer c = a[j] + b[j];
+                        ifThenElse(&product[j].bits[0], &c.bits[0], &zero_int[j].bits[0], bitsize, c.geq(zero_int[j]));
                 }
         }
         gettimeofday(&t_end_run, NULL);
