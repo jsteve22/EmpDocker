@@ -2,7 +2,9 @@
 
 #include "mean_pooling.h"
 
-MeanPoolOutput MeanPooling(int bitsize, int64_t* inputs_a, int height, int width, int window_size, int party) {
+MeanPoolOutput MeanPooling(int bitsize, int64_t* inputs_a, int height, int width, int window_size, int party, unsigned dup_test) {
+        std::vector<double> iotime_ms;
+
         MeanPoolOutput output_struct;
         vector<vector<Integer> > output(height/window_size, vector<Integer>(width/window_size, Integer(bitsize, 0, PUBLIC))); // Integer product(bitsize, 0, PUBLIC);
         // vector<Integer> zero_int(len, Integer(bitsize, 0, PUBLIC)); // Integer zero_int(bitsize, 0, PUBLIC);
@@ -25,18 +27,20 @@ MeanPoolOutput MeanPooling(int bitsize, int64_t* inputs_a, int height, int width
 
 
         gettimeofday(&t_end_a, NULL);
-        for (int i = 0; i < height; i+=window_size) {
-            for (int j = 0; j < width; j+=window_size){
-                Integer total = Integer(bitsize, 0, PUBLIC);
-                for (int k = 0; k < window_size; k++) {
-                    for (int l = 0; l < window_size; l++) {
-                        total = total + a[i + k][j + l];
-                        //if ((total.geq(half_mod)) == 1) {
-                          //  total = total - modulus;
-                        //}
-                    }
-                } 
-                output[i / window_size][j / window_size] = total / Integer(bitsize, window_size * window_size, PUBLIC);  
+        for(unsigned m = 0; m < dup_test; ++m){ // 10 duplicate test
+            for (int i = 0; i < height; i+=window_size) {
+                for (int j = 0; j < width; j+=window_size){
+                    Integer total = Integer(bitsize, 0, PUBLIC);
+                    for (int k = 0; k < window_size; k++) {
+                        for (int l = 0; l < window_size; l++) {
+                            total = total + a[i + k][j + l];
+                            //if ((total.geq(half_mod)) == 1) {
+                            //  total = total - modulus;
+                            //}
+                        }
+                    } 
+                    output[i / window_size][j / window_size] = total / Integer(bitsize, window_size * window_size, PUBLIC);  
+                }
             }
         }
 

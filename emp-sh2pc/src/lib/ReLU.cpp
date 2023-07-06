@@ -4,6 +4,7 @@
 
 u64* ReLU(int bitsize, int64_t* inputs_a, int len, int party, unsigned dup_test)
 { // void ReLU(int bitsize, string inputs_a, string inputs_b) {
+        std::vector<double> iotime_ms;
 
         vector<Integer> product(len, Integer(bitsize, 0, PUBLIC)); // Integer product(bitsize, 0, PUBLIC);
         vector<Integer> zero_int(len, Integer(bitsize, 0, PUBLIC)); // Integer zero_int(bitsize, 0, PUBLIC);
@@ -40,7 +41,6 @@ u64* ReLU(int bitsize, int64_t* inputs_a, int len, int party, unsigned dup_test)
         }
         */
 
-        /*
         double mseconds_a = 1000 * (t_end_a.tv_sec - t_start_a.tv_sec) + (t_end_a.tv_usec - t_start_a.tv_usec) / 1000.0;
         double mseconds_run = (1000 * (t_end_run.tv_sec - t_end_a.tv_sec) + (t_end_run.tv_usec - t_end_a.tv_usec) / 1000.0)/dup_test;
         double mseconds_reveal = 1000 * (t_end_reveal.tv_sec - t_end_run.tv_sec) + (t_end_reveal.tv_usec - t_end_run.tv_usec) / 1000.0;
@@ -55,7 +55,6 @@ u64* ReLU(int bitsize, int64_t* inputs_a, int len, int party, unsigned dup_test)
         printf("%d %d Time of run circuit:       %f ms\n", party, getpid(), mseconds_run);
         printf("%d %d Time of REAL RUN circuit:  %f ms\n", party, getpid(), mseconds_run-io_ms);
         printf("%d %d Time of reveal the output: %f ms\n", party, getpid(), mseconds_reveal);
-        */
 
         return product_reveal;
 }
