@@ -28,6 +28,6 @@ struct MeanPoolOutput {
     int width;
 };
 
-MeanPoolOutput MeanPooling(int bitsize, int64_t* inputs_a, int height, int width, int window_size, int party);
+MeanPoolOutput MeanPooling(int bitsize, int64_t* inputs_a, int height, int width, int window_size, int party, unsigned dup_test=10);
 
 #endif
