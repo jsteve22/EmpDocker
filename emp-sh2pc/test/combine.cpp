@@ -370,10 +370,30 @@ int main(int argc, char* argv[]) {
   int channels = 3;
 
 
+  string model_directory("../models/miniONN_cifar_model/");
+  string input_image("../models/cifar_image.txt");
+
+  vector<vector<vector<int> > > image_data;
+  image_data = read_image(input_image);
+  int image_height = image_data[0].size();
+  int image_width = image_data[0][0].size();
+  u64 **input = (u64**) malloc( sizeof(u64*) * channels );
+
+  for (int chan = 0; chan < channels; chan++) {
+    int idx = 0;
+    input[chan] = (u64*) malloc( sizeof(u64) * image_height * image_width );
+    for (int i = 0; i < image_height; i++) {
+      for (int j = 0; j < image_width; j++) {
+        input[chan][idx] = image_data[chan][i][j];
+        idx++;
+      }
+    }  
+  }
+
  // CIFAR-10 CNN
    clear_files();
   // 1) Convolution: input image 3 × 32 × 32, window size 3 × 3, stride (1,1), pad (1, 1), number of output channels 64: R64×1024 ← R64×27·R27×1024.
-  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d.kernel.txt");
+  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, model_directory + "conv2d.kernel.txt");
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
@@ -398,7 +418,7 @@ int main(int argc, char* argv[]) {
 
   // 3) Convolution: window size 3 × 3, stride (1, 1), pad (1, 1), number of output channels 64: R64×1024 ← R64×576· R576×1024.
   unflattened = unflatten(relu_output, channels, height, width);
-  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_1.kernel.txt", unflattened);
+  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, model_directory + "conv2d_1.kernel.txt", unflattened);
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
@@ -428,7 +448,7 @@ int main(int argc, char* argv[]) {
   print_3D_output(meanpool_matrix, height, width, channels, "./output_files/5_meanpool_output.txt");
 
   // 6) Convolution: window size 3 × 3, stride (1, 1), pad (1, 1), number of output channels 64: R64×256 ← R64×576· R576×256.
-  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_2.kernel.txt", meanpool_matrix);
+  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, model_directory + "conv2d_2.kernel.txt", meanpool_matrix);
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
@@ -447,7 +467,7 @@ int main(int argc, char* argv[]) {
 
   // 8) Convolution: window size 3 × 3, stride (1, 1), pad (1, 1), number of output channels 64: R64×256 ← R64×576· R576×256.
   unflattened = unflatten(relu_output, channels, height, width);
-  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_3.kernel.txt", unflattened);
+  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, model_directory + "conv2d_3.kernel.txt", unflattened);
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
@@ -478,7 +498,7 @@ int main(int argc, char* argv[]) {
   print_3D_output(conv_output.client_shares.linear, height, width, channels, "./output_files/10_meanpool_output.txt");
 
   // 11) Convolution: window size 3 × 3, stride (1, 1), pad (1, 1), number of output channels 64: R64×64 ← R64×576· R576×64.
-  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, "./miniONN_cifar_model/conv2d_4.kernel.txt", meanpool_matrix);
+  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, model_directory + "conv2d_4.kernel.txt", meanpool_matrix);
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
@@ -497,7 +517,7 @@ int main(int argc, char* argv[]) {
 
   // 13) Convolution: window size 1 × 1, stride (1, 1), number of output channels of 64: R64×64 ← R64×64· R64×64.
   unflattened = unflatten(relu_output, channels, height, width);
-  conv_output = conv(&cfhe, &sfhe, height, width, 1, 1, channels, 64, 1, 1, "./miniONN_cifar_model/conv2d_5.kernel.txt", unflattened);
+  conv_output = conv(&cfhe, &sfhe, height, width, 1, 1, channels, 64, 1, 1, model_directory + "conv2d_5.kernel.txt", unflattened);
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
@@ -516,7 +536,7 @@ int main(int argc, char* argv[]) {
 
   // 15) Convolution: window size 1 × 1, stride (1, 1), number of output channels of 16: R16×64 ← R16×64·R64×64.
   unflattened = unflatten(relu_output, channels, height, width);
-  conv_output = conv(&cfhe, &sfhe, height, width, 1, 1, channels, 16, 1, 1, "./miniONN_cifar_model/conv2d_6.kernel.txt", unflattened);
+  conv_output = conv(&cfhe, &sfhe, height, width, 1, 1, channels, 16, 1, 1, model_directory + "conv2d_6.kernel.txt", unflattened);
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
