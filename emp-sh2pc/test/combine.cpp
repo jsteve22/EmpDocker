@@ -31,6 +31,13 @@ std::vector<double> ANDgatetime_ms, XORgatetime_ms;
 using namespace emp;
 using namespace std;
 
+extern int ciphertexts;
+extern int result_ciphertexts;
+extern int rot_count;
+extern int multiplications;
+extern int additions;
+extern int subtractions;
+
 struct ConvOutput {
     Metadata data;
     int output_h;
@@ -41,10 +48,12 @@ struct ConvOutput {
 
 ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int filter_h, int filter_w,
     int inp_chans, int out_chans, int stride, bool pad_valid, string weights_filename, u64** input_data=NULL) {
+    // both parties need data
     Metadata data = conv_metadata(cfhe->encoder, image_h, image_w, filter_h, filter_w, inp_chans, 
         out_chans, stride, stride, pad_valid);
     string filename;
    
+    // client side
     printf("\nClient Preprocessing: ");
     float origin = (float)clock()/CLOCKS_PER_SEC;
 
@@ -87,6 +96,8 @@ ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int 
     float endTime = (float)clock()/CLOCKS_PER_SEC;
     float timeElapsed = endTime - origin;
     printf("Conv PreProcessing [%f seconds]\n", timeElapsed);
+
+    // outputs -> client_shares
 
     vector<vector<vector<vector<int> > > > data4;
     //filename = "conv2d.kernel.txt";
@@ -189,6 +200,153 @@ ConvOutput conv(ClientFHE* cfhe, ServerFHE* sfhe, int image_h, int image_w, int 
     server_conv_free(&data, masks, &server_shares);
     return conv_output;
 }
+
+ClientShares conv_pre(ClientFHE* cfhe, Metadata data, u64** input_data) {
+  // client side
+  printf("\nClient Preprocessing: ");
+  float origin = (float)clock()/CLOCKS_PER_SEC;
+
+  u64** input = (u64**) malloc(sizeof(u64*)*data.inp_chans);
+  for (int chan = 0; chan < data.inp_chans; chan++) {
+    input[chan] = (u64*) malloc(sizeof(u64)*data.image_size);
+  }
+
+  for (int chan = 0; chan < data.inp_chans; chan++) {
+    for (int i = 0; i < data.image_h * data.image_w; i++) {
+      input[chan][i] = input_data[chan][i] + PLAINTEXT_MODULUS;
+    }  
+  }
+  for (int i = 0; i < data.inp_chans; i++) {
+    free(input_data[i]);
+  }
+  free(input_data);
+
+  ClientShares client_shares = client_conv_preprocess(cfhe, &data, input);
+  float endTime = (float)clock()/CLOCKS_PER_SEC;
+  float timeElapsed = endTime - origin;
+  printf("Conv PreProcessing [%f seconds]\n", timeElapsed);
+
+  // Free image
+  for (int chan = 0; chan < data.inp_chans; chan++) {
+    free(input[chan]);
+  }
+  free(input);
+
+  return client_shares;
+  // outputs -> client_shares
+}
+
+ClientShares conv_server(ServerFHE* sfhe, Metadata data, string weights_filename, ClientShares client_shares) {
+  // both parties need data
+  float origin = (float)clock()/CLOCKS_PER_SEC;
+  float endTime;
+  float timeElapsed;
+
+  vector<vector<vector<vector<int> > > > data4;
+  data4 = read_weights_4(weights_filename);
+  int width = data4[0][0].size();
+  int height = data4[0][0][0].size();
+
+  printf("Server Preprocessing: ");
+  float startTime = (float)clock()/CLOCKS_PER_SEC;
+
+  // Server creates filter
+  u64*** filters = (u64***) malloc(sizeof(u64**)*data.out_chans);
+  for (int out_c = 0; out_c < data.out_chans; out_c++) {
+    filters[out_c] = (u64**) malloc(sizeof(u64*)*data.inp_chans);
+    for (int inp_c = 0; inp_c < data.inp_chans; inp_c++) {
+      filters[out_c][inp_c] = (u64*) malloc(sizeof(u64)*data.filter_size);
+      int idx = 0;
+      for (int w = 0; w < width; w++) {
+        for (int h = 0; h < height; h++) {
+          filters[out_c][inp_c][idx] = data4[out_c][inp_c][w][h] + PLAINTEXT_MODULUS;
+          idx++;
+        }
+      }
+    }
+  }
+
+
+  uint64_t** linear_share = (uint64_t**) malloc(sizeof(uint64_t*)*data.out_chans);
+  
+  for (int chan = 0; chan < data.out_chans; chan++) {
+    linear_share[chan] = (uint64_t*) malloc(sizeof(uint64_t)*data.output_h*data.output_w);
+    for (int idx = 0; idx < data.output_h*data.output_w; idx++) {
+      // TODO: Adjust these for testing
+      linear_share[chan][idx] = 300;
+    }
+  }
+
+  char**** masks = server_conv_preprocess(sfhe, &data, filters); 
+  ServerShares server_shares = server_conv_preprocess_shares(sfhe, &data, linear_share);
+
+  endTime = (float)clock()/CLOCKS_PER_SEC;
+  timeElapsed = endTime - startTime;
+  printf("[%f seconds]\n", timeElapsed);
+
+  printf("Convolution: ");
+  startTime = (float)clock()/CLOCKS_PER_SEC;
+
+  server_conv_online(sfhe, &data, client_shares.input_ct, masks, &server_shares);
+
+  endTime = (float)clock()/CLOCKS_PER_SEC;
+  timeElapsed = endTime - startTime;
+  printf("Conv processing time [%f seconds]\n", timeElapsed);
+
+  // This simulates the client receiving the ciphertexts 
+  client_shares.linear_ct.inner = (char*) malloc(sizeof(char)*server_shares.linear_ct.size);
+  client_shares.linear_ct.size = server_shares.linear_ct.size;
+  memcpy(client_shares.linear_ct.inner, server_shares.linear_ct.inner, server_shares.linear_ct.size);
+
+  // Free filters
+  for (int out_c = 0; out_c < data.out_chans; out_c++) {
+    for (int inp_c = 0; inp_c < data.inp_chans; inp_c++)
+      free(filters[out_c][inp_c]);
+    free(filters[out_c]);
+  }
+  free(filters);
+  
+  // Free secret shares
+  for (int chan = 0; chan < data.out_chans; chan++) {
+    free(linear_share[chan]);
+  }
+  free(linear_share);
+
+  server_conv_free(&data, masks, &server_shares);
+  return client_shares;
+}
+
+ConvOutput conv_post(ClientFHE* cfhe, Metadata data, ClientShares client_shares) {
+  float origin = (float)clock()/CLOCKS_PER_SEC;
+  float endTime;
+  float timeElapsed;
+  float startTime;
+  printf("Post process: ");
+  startTime = (float)clock()/CLOCKS_PER_SEC;
+
+  client_conv_decrypt(cfhe, &data, &client_shares);
+
+  endTime = (float)clock()/CLOCKS_PER_SEC;
+  timeElapsed = endTime - startTime;
+  printf("[%f seconds]\n", timeElapsed);
+
+  timeElapsed = endTime - origin;
+  printf("Total [%f seconds]\n\n", timeElapsed);
+
+  ConvOutput conv_output;
+  conv_output.data = data;
+  conv_output.output_h = data.output_h;
+  conv_output.output_w = data.output_w;
+  conv_output.output_chan = data.out_chans;
+  conv_output.client_shares = client_shares;
+  
+  // Free C++ allocations
+  //free(client_shares.linear_ct.inner);
+  //client_conv_free(&data, &client_shares);
+  return conv_output;
+}
+
+
 
 u64* fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h, u64* dense_input, string weights_filename, int split_index=0) {
     Metadata data = fc_metadata(cfhe->encoder, vector_len, matrix_h);
@@ -356,6 +514,7 @@ int main(int argc, char* argv[]) {
 
   ConvOutput conv_output;
   MeanPoolOutput meanpool_output;
+  Metadata data;
   meanpool_output.height = 0;
   meanpool_output.width = 0;
   u64* flattened;
@@ -364,6 +523,7 @@ int main(int argc, char* argv[]) {
   u64** meanpool_matrix = (u64**) malloc(sizeof(u64*) * 64) ;
   u64* dense_input;
   u64* temp;
+  ClientShares client_shares;
 
   int height = 32;
   int width = 32;
@@ -393,7 +553,12 @@ int main(int argc, char* argv[]) {
  // CIFAR-10 CNN
    clear_files();
   // 1) Convolution: input image 3 × 32 × 32, window size 3 × 3, stride (1,1), pad (1, 1), number of output channels 64: R64×1024 ← R64×27·R27×1024.
-  conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, model_directory + "conv2d.kernel.txt");
+  // conv_output = conv(&cfhe, &sfhe, height, width, 3, 3, channels, 64, 1, 0, model_directory + "conv2d.kernel.txt");
+
+  data = conv_metadata(cfhe.encoder, height, width, 3, 3, channels, 64, 1, 1, 0);
+  client_shares = conv_pre(&cfhe, data, input);
+  client_shares = conv_server(&sfhe, data, model_directory + "conv2d.kernel.txt", client_shares);
+  conv_output = conv_post(&cfhe, data, client_shares);
   height = conv_output.output_h;
   width = conv_output.output_w;
   channels = conv_output.output_chan;
@@ -586,6 +751,14 @@ int main(int argc, char* argv[]) {
   client_free_keys(&cfhe);
   free_ct(&key_share);
   server_free_keys(&sfhe);
+
+  cout << endl;
+  // cout << "ciphertexts: " << ciphertexts << endl;
+  // cout << "result_ciphertexts: " << result_ciphertexts << endl;
+  cout << "rot_count: " << rot_count << endl;
+  cout << "multiplications: " << multiplications << endl;
+  cout << "additions: " << additions << endl;
+  // cout << "subtractions: " << subtractions << endl;
 
   finalize_semi_honest();
   delete io;
