@@ -21,6 +21,13 @@ typedef u64* Channel;
 typedef Channel* Image;
 typedef Image* Filters;
 
+extern int ciphertexts;
+extern int result_ciphertexts;
+extern int rot_count;
+extern int multiplications;
+extern int additions;
+extern int subtractions;
+
 /* Rotate a plaintext vector in the correct half cyclic manner */
 uv64 pt_rotate(int slot_count, int rotation, vector<u64> &vec);
 
