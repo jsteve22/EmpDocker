@@ -407,7 +407,6 @@ void send_serial(NetIO *io, SerialCT *serial) {
 
 void recv_clientshare(NetIO *io, ClientShares *client_shares) {
   recv_serial(io, &(client_shares->input_ct));
-  recv_serial(io, &(client_shares->linear_ct));
 }
 
 void send_clientshare(NetIO *io, ClientShares *client_shares) {
@@ -518,7 +517,7 @@ int main(int argc, char* argv[]) {
     io->recv_data(&data, sizeof(Metadata));
 
     recv_clientshare(io, &client_shares);
-    client_shares = fc_server(&sfhe, data, "./miniONN_cifar_model/dense.kernel.txt", client_shares, i);
+    client_shares = fc_server(&sfhe, data, model_directory + "dense.kernel.txt", client_shares, i);
     send_clientshare(io, &client_shares);
   }
 
