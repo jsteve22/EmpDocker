@@ -18,6 +18,7 @@
 #include "read_txt.h"
 #include "ReLU.h"
 #include "mean_pooling.h"
+#include "batchnorm_gc.h"
 #include "flattens.h"
 //#include "conv_layer.h"
 //#include "dense_layer.h"
@@ -444,6 +445,41 @@ u64* fc(ClientFHE* cfhe, ServerFHE* sfhe, int vector_len, int matrix_h, u64* den
 
 }
 
+void test_batchnorm(int party) {
+  u64 width = 16;
+  u64 height = 16;
+  u64 channels = 64;
+  u64 vec_size = width*height*channels;
+  int bitsize = 32;
+
+  u64 *vector = (u64*) malloc( sizeof(u64) * vec_size );
+
+  for (int i = 0; i < vec_size; i++) {
+    vector[i] = 1;
+    if (party == BOB) {
+      vector[i] = 0;
+    }
+  }
+
+  u64 *results; 
+  if (party == ALICE) {
+    results = batchnorm_gc(bitsize, (int64_t*) vector, height, width, channels, party);
+  } else {
+    results = batchnorm_gc(bitsize, (int64_t*) vector, height, width, channels, party, "../models/resnet18/layer1.0.bn1");
+  }
+
+  if (party == ALICE) {
+    for (int i = 0; i < vec_size; i+=(width*height)) {
+      cout << (int64_t) results[i] << " ";
+      cout << (int64_t) results[i+1] << " ";
+      cout << (int64_t) results[i+2] << " ";
+      cout << endl;
+    }
+    cout << endl;
+  }
+  return;
+}
+
 int main(int argc, char* argv[]) {
   // TODO: Rewrite scale_down function to take in 
   // single pointer instead of double pointer
@@ -455,6 +491,9 @@ int main(int argc, char* argv[]) {
   NetIO *io = new NetIO(party == ALICE ? nullptr : "127.0.0.1", port);
 
   setup_semi_honest(io, party);
+
+  test_batchnorm(party);
+  return 1;
 
   cout << "Calculating ReLU of an array length = " << LEN << ", bitsize =" << bitsize << endl;
 

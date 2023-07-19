@@ -28,7 +28,7 @@ add_library( DelphiOffline STATIC
     ${LIB}/triples_gen.cpp ${LIB}/read_txt.cpp ${LIB}/ReLU.cpp 
     ${LIB}/mean_pooling.cpp ${LIB}/flattens.cpp ${LIB}/dense_layer.cpp
     ${LIB}/conv_layer.cpp ${LIB}/extras.cpp ${LIB}/helper_functions.cpp
-    ${LIB}/print_outputs.cpp)
+    ${LIB}/print_outputs.cpp ${LIB}/batchnorm_gc.cpp)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib)
 
 include(FetchContent)
