@@ -31,3 +31,53 @@ u64** unflatten(u64* input, int channels, int height, int width) {
     }
     return unflattened;
 }
+
+PaddedOutput pad(u64** input, int channels, int height, int width, int padding) {
+    PaddedOutput output;
+
+    // create empty padded 3D array
+    u64*** padded = (u64***) malloc(sizeof(u64**) * channels);
+    int padded_height = height + padding*2;
+    int padded_width = width + padding*2;
+    for (int i = 0; i < channels; i++) {
+        padded[i] = (u64**) malloc(sizeof(u64*) * padded_height);
+        for (int j = 0; j < padded_height; j++) {
+            padded[i][j] = (u64*) malloc(sizeof(u64) * padded_width);
+            for (int k = 0; k < padded_width; k++) {
+                padded[i][j][k] = 0;
+            } 
+        }
+    }
+
+    // fill padded array
+    for (int i = 0; i < channels; i++) {
+        int idx = 0;
+        for (int j = 0; j < height; j++) {
+            for (int k = 0; k < width; k++) {
+                padded[i][j + padding][k + padding] = input[i][idx]
+                idx++;
+            }
+        }
+    }
+
+    // flatten to 2D array
+    u64** flat_pad = (u64**) malloc(sizeof(u64*) * channels);
+    for (int i = 0; i < channels; i++) {
+        flat_pad[i] = (u64*) malloc(sizeof(u64) * padded_height * padded_width);
+    }
+
+    for (int i = 0; i < channels; i++) {
+        int idx = 0;
+        for (int j = 0; j < padded_height; j++) {
+            for (int k = 0; k < padded_width; k++) {
+                flat_pad[i][idx] = padded[i][j][k];
+                idx++;
+            }
+        }
+    }
+
+    output.matrix = flat_pad;
+    output.height = padded_height;
+    output.width = padded_width;
+    return output;
+}

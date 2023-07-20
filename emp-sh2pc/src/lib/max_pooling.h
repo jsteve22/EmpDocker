@@ -1,5 +1,5 @@
-#ifndef FLATTENS_H
-#define FLATTENS_H
+#ifndef MAX_POOLING_H
+#define MAX_POOLING_H
 
 #include "emp-sh2pc/emp-sh2pc.h"
 #include <sys/time.h>
@@ -22,16 +22,12 @@ typedef uint64_t u64;
 using namespace emp;
 using namespace std;
 
-struct PaddedOutput {  
-    u64** matrix;
+struct MaxPoolOutput {  
+    u64* matrix;
     int height;
     int width;
 };
 
-u64* flatten(u64** input, int channels, int height, int width);
-
-u64** unflatten(u64* input, int channels, int height, int width);
-
-PaddedOutput pad(u64** input, int channels, int height, int width, int padding);
+MaxPoolOutput MaxPooling(int bitsize, int64_t* inputs_a, int height, int width, int window_size, int stride, int party, unsigned dup_test=10);
 
 #endif
