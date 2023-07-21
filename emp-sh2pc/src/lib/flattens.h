@@ -34,4 +34,6 @@ u64** unflatten(u64* input, int channels, int height, int width);
 
 PaddedOutput pad(u64** input, int channels, int height, int width, int padding);
 
+u64** residual(u64** input1, u64** input2, int channels, int height, int width);
+
 #endif

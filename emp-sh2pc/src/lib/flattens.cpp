@@ -81,3 +81,18 @@ PaddedOutput pad(u64** input, int channels, int height, int width, int padding) 
     output.width = padded_width;
     return output;
 }
+
+u64** residual(u64** input1, u64** input2, int channels, int height, int width) {
+    u64** output = (u64**) malloc(sizeof(u64*) * channels);
+    for (int i = 0; i < channels; i++) {
+       output[i] = (u64*) malloc(sizeof(u64) * height * width);
+    }
+
+    for (int i = 0; i < channels; i++) {
+        for (int j = 0; j < height * width; j++) {
+            output[i][j] = input1[i][j] + input2[i][j];
+        }
+    }
+
+    return output;
+}
