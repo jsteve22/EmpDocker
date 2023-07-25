@@ -410,7 +410,7 @@ void recv_clientshare(NetIO *io, ClientShares *client_shares) {
 }
 
 void send_clientshare(NetIO *io, ClientShares *client_shares) {
-  send_serial(io, &(client_shares->input_ct));
+  // send_serial(io, &(client_shares->input_ct));
   send_serial(io, &(client_shares->linear_ct));
 }
 

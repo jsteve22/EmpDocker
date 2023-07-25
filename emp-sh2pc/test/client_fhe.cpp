@@ -398,15 +398,17 @@ void recv_serial(NetIO *io, SerialCT *serial) {
   io->recv_data(&(serial->size), sizeof(uint64_t));
   serial->inner = (char*) malloc( sizeof(char) * serial->size );
   io->recv_data(serial->inner, sizeof(char) * serial->size);
+  cout << "\tclient received " << serial->size << " bytes (" << (serial->size)/8 << " 64bit ints or " << (serial->size)/(8*POLY_MOD_DEGREE) << " ciphertexts)\n";
 }
 
 void send_serial(NetIO *io, SerialCT *serial) {
   io->send_data(&(serial->size), sizeof(uint64_t));
   io->send_data(serial->inner, sizeof(char) * serial->size);
+  cout << "\tclient sent " << serial->size << " bytes (" << (serial->size)/8 << " 64bit ints or " << (serial->size)/(8*POLY_MOD_DEGREE) << " ciphertexts)\n";
 }
 
 void recv_clientshare(NetIO *io, ClientShares *client_shares) {
-  recv_serial(io, &(client_shares->input_ct));
+  // recv_serial(io, &(client_shares->input_ct));
   recv_serial(io, &(client_shares->linear_ct));
 }
 
