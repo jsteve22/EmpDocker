@@ -522,6 +522,7 @@ int main(int argc, char* argv[]) {
 
   // 2) ReLU Activation: calculates ReLU for each input
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
+  cout << "\t" << height*width*channels << " integers sent to ReLU\n";
   relu_output = ReLU(bitsize, (int64_t*) flattened, height*width*channels, party);
   scale_down(relu_output, channels*height*width, SCALE);
   cout << "ReLU Done\n";
@@ -551,6 +552,7 @@ int main(int argc, char* argv[]) {
 
   // 4) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
+  cout << "\t" << height*width*channels << " integers sent to ReLU\n";
   relu_output = ReLU(bitsize, (int64_t*) flattened, width*height*channels, party);
   scale_down(relu_output, channels*height*width, SCALE);
   cout << "ReLU_1 Done\n";
@@ -592,6 +594,7 @@ int main(int argc, char* argv[]) {
 
   // 7) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
+  cout << "\t" << height*width*channels << " integers sent to ReLU\n";
   relu_output = ReLU(bitsize, (int64_t*) flattened, height*width*channels, party);
   scale_down(relu_output, channels*height*width, SCALE);
   cout << "ReLU_2 Done\n";
@@ -621,6 +624,7 @@ int main(int argc, char* argv[]) {
 
   // 9) ReLU Activation: calculates ReLU for each input
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
+  cout << "\t" << height*width*channels << " integers sent to ReLU\n";
   relu_output = ReLU(bitsize, (int64_t*) flattened, height*width*channels, party);
   scale_down(relu_output, channels*height*width, SCALE);
   cout << "ReLU_3 Done\n";
@@ -662,6 +666,7 @@ int main(int argc, char* argv[]) {
 
   // 12) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
+  cout << "\t" << height*width*channels << " integers sent to ReLU\n";
   relu_output = ReLU(bitsize, (int64_t*) flattened, height*width*channels, party);
   scale_down(relu_output, channels*height*width, SCALE);
   cout << "ReLU_4 Done\n";
@@ -691,6 +696,7 @@ int main(int argc, char* argv[]) {
 
   // 14) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
+  cout << "\t" << height*width*channels << " integers sent to ReLU\n";
   relu_output = ReLU(bitsize, (int64_t*) flattened, height*width*channels, party);
   scale_down(relu_output, channels*height*width, SCALE);
   cout << "ReLU_5 Done\n";
@@ -720,6 +726,7 @@ int main(int argc, char* argv[]) {
 
   // 16) ReLU Activation: calculates ReLU for each input.
   flattened = flatten(conv_output.client_shares.linear, channels, height, width);
+  cout << "\t" << height*width*channels << " integers sent to ReLU\n";
   relu_output = ReLU(bitsize, (int64_t*) flattened, height*width*channels, party);
   scale_down(relu_output, channels*height*width, SCALE);
   cout << "ReLU_6 Done\n";
