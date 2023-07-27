@@ -54,7 +54,7 @@ PaddedOutput pad(u64** input, int channels, int height, int width, int padding) 
         int idx = 0;
         for (int j = 0; j < height; j++) {
             for (int k = 0; k < width; k++) {
-                padded[i][j + padding][k + padding] = input[i][idx]
+                padded[i][j + padding][k + padding] = input[i][idx];
                 idx++;
             }
         }
