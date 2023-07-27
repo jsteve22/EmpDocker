@@ -35,9 +35,8 @@ MaxPoolOutput MaxPooling(int bitsize, int64_t* inputs_a, int height, int width, 
                     Integer max = Integer(bitsize, 0, PUBLIC);
                     for (int k = 0; k < window_size; k++) {
                         for (int l = 0; l < window_size; l++) {
-                            if (a[i + k][j + l] > max) {
-                                max = a[i + k][j + l];
-                            }
+                            // max = a[i + k][j + l];
+                            ifThenElse(&max.bits[0], &a[i+k][j+l].bits[0], &max.bits[0], bitsize, a[i+k][j+k].geq(max));
                         }
                     }
                     output[out_i][out_j] = max;

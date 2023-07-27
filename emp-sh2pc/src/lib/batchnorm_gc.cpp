@@ -48,13 +48,13 @@ u64* batchnorm_gc(int bitsize, int64_t* inputs_a, int height, int width, int cha
 
       Integer bias   = Integer(bitsize, party==BOB ? biases[idx] : 0, BOB);
       Integer mean   = Integer(bitsize, party==BOB ? means[idx] : 0, BOB);
-      Integer var    = Integer(bitsize, party==BOB ? (int)sqrt((double)vars[idx]) : 0, BOB);
+      Integer var    = Integer(bitsize, party==BOB ? ((vars[idx]) ? vars[idx] : 1) : 0, BOB);
       Integer weight = Integer(bitsize, party==BOB ? weights[idx] : 0, BOB);
 
       // output[i] = ((a[i]-mean)/var)*weight + bias;
       output[i] = (a[i]-mean);
-      output[i] = output[i] / var;
       output[i] = output[i] * weight;
+      output[i] = output[i] / var;
       output[i] = output[i] + bias;
     }
   }

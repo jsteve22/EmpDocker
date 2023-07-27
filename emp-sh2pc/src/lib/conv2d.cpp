@@ -669,6 +669,9 @@ Metadata conv_metadata(int slot_count, int image_h, int image_w, int filter_h, i
 
     int pack_num = slot_count / 2;
     int chans_per_half = pack_num / image_size;
+    // cout << "slot_count: " << slot_count << endl;
+    // cout << "pack_num: " << pack_num << endl;
+    // cout << "chans_per_half: " << chans_per_half << endl;
     int out_ct = ceil((float) out_chans / (2*chans_per_half));
     // In input packing we create inp_chans number of ciphertexts that are the
     // size of the output. In output packing we simply send the input
