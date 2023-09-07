@@ -342,7 +342,7 @@ void test_batchnorm(int party) {
 int main(int argc, char* argv[]) {
   // TODO: Rewrite scale_down function to take in 
   // single pointer instead of double pointer
-  int SCALE = 256*256;
+  int SCALE = 256;
   int bitsize = 32;
   int LEN = 32*32*64;
   int port, party;
@@ -607,6 +607,20 @@ int main(int argc, char* argv[]) {
   cout << "ReLU_6 Done\n";
   cout << endl;
   print_1D_output(relu_output, height*width*channels, "./output_files/16_relu_output.txt");
+  cout << endl;
+  // cout << "ciphertexts: " << ciphertexts << endl;
+  // cout << "result_ciphertexts: " << result_ciphertexts << endl;
+  cout << "rot_count: " << rot_count << endl;
+  cout << "multiplications: " << multiplications << endl;
+  cout << "additions: " << additions << endl;
+  // cout << "subtractions: " << subtractions << endl;
+
+  finalize_semi_honest();
+  delete io;
+  return 0;
+
+
+
 
   // 17) Fully Connected Layer: fully connects the incoming 1024 nodes to the outgoing 10 nodes: R10×1 ← R10×1024· R1024×1.
   int vec_len = width * height * channels;
